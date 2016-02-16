@@ -27,9 +27,11 @@
 
 typedef struct Port* PortPtr;
 typedef struct PortStats* PortStatsPtr;
+typedef void (*LoopFuncPtr)(PortPtr, uint32_t, struct rte_mbuf**, uint32_t);
 
-PortPtr port_create(int);
+PortPtr port_create(uint32_t, uint32_t);
 int     port_start(PortPtr);
 int     port_delete(PortPtr);
+void    port_loop(PortPtr, LoopFuncPtr);
 
 #endif // _NET_H_

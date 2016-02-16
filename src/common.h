@@ -31,8 +31,10 @@
 /* Advised to have a size where ME_PORT_PKTMBUF_POOL_SIZE modulo num == 0 */
 #define PORT_PKTMBUF_POOL_CACHE_SIZE ((17))  
 
-#define MAX_NUM_SOCKETS 4
-#define TX_DESC_DEFAULT 512
-#define RX_DESC_DEFAULT 128
+#define MAX_NUM_SOCKETS 4   /* Total number of possible sockets in the system */
+#define TX_DESC_DEFAULT 512 /* Mempool size for the TX queue */
+#define RX_DESC_DEFAULT 128 /* Mempool size for the RX queue */
+#define MAX_PKT_BURST   32  /* Maximum number of packets received in a burst */
+#define MAX_QUEUES      4   /* Maximum number of queues */
 
 #endif // _COMMON_H_

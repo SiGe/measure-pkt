@@ -26,10 +26,6 @@
 
 */
 
-struct Size48 {
-    char bytes[48];
-};
-
 int
 main(int argc, char **argv) {
     int ret = 0;
@@ -42,7 +38,7 @@ main(int argc, char **argv) {
     nb_ports = rte_eth_dev_count();
     printf("Total number of ports: %d\n", nb_ports);
 
-    PortPtr port = port_create(0);
+    PortPtr port = port_create(0, 1);
     if (!port) {
         port_delete(port);
         return EXIT_FAILURE;
