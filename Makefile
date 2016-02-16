@@ -42,9 +42,10 @@ include $(RTE_SDK)/mk/rte.vars.mk
 APP = l2fwd
 
 # all source are stored in SRCS-y
-SRCS-y := src/main.c
+SRCS-y := src/main.c src/memory.c src/net.c
 
-CFLAGS += -O3
+# CFLAGS += -O3
+CFLAGS += -O0 -g
 CFLAGS += $(WERROR_FLAGS)
 
 include $(RTE_SDK)/mk/rte.extapp.mk
