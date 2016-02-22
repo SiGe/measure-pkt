@@ -22,27 +22,16 @@
  * SOFTWARE.
  */
 
-#ifndef _MEMORY_H_
-#define _MEMORY_H_
+#ifndef _CONSOLE_H_
+#define _CONSOLE_H_
 
-typedef struct HugePage* HugePagePtr;
+#include "stdbool.h"
 
-/* Allocate a single huge page for saving objects */
-HugePagePtr mem_create(int);
+typedef struct Console* ConsolePtr;
 
-/* Allocate a space of size_t on a huge page. 
- *
- * - If HugePagePtr is use a static huge page allocated on the same socket id as
- * the calling thread.
- *
- * - If the huge page is full, return null.
- *
- * Finally, make sure that the returned pointer is cache-aligned or at least in
- * the same cache line as the last object.
- */
-int mem_alloc(size_t, HugePagePtr, void **);
+ConsolePtr console_create(uint32_t);
+bool console_refresh(ConsolePtr);
 
-/* Delete a huge page container */
-int mem_delete(HugePagePtr);
+#define console_clear() printf("\033[H\033[J")
+#endif
 
-#endif // _MEMORY_H_

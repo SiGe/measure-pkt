@@ -27,6 +27,7 @@
 #include <stdlib.h>
 
 #include "rte_common.h"
+#include "rte_cycles.h"
 #include "rte_eal.h"
 #include "rte_ethdev.h"
 #include "rte_errno.h"
@@ -50,10 +51,6 @@ static struct rte_eth_conf port_conf = {
 	},
 };
 
-struct PortStats {
-    // ...
-}; 
-
 struct mbuf_table {
     struct rte_mbuf     *tx_bufs[MAX_PKT_BURST];
     uint32_t             len;
@@ -70,15 +67,19 @@ struct Port {
     uint16_t    rx_burst_size; /* Burst size of RX queue */
     uint16_t    tx_burst_size; /* Burst size of TX queue */
 
-    struct rte_mempool  *pool;  /* DPDK pktmbuf pool */
-    struct PortStats    *stats; /* Port statistics */
     struct rte_eth_conf *conf;  /* Ethernet config */
+    struct rte_mempool  *pool;  /* DPDK pktmbuf pool */
 
     struct mbuf_table    tx_tables[MAX_QUEUES];
+    struct rte_eth_stats port_stats;      /* Port statistics */
+    uint64_t             port_stats_time; /* Time when the port stat snapshot was taken */
+    struct ether_addr    port_mac;
 };
 
 static int
 port_configure(PortPtr port) {
+    RTE_LOG(INFO, USER1,
+        "Creating port with %d RX rings and %d TX rings\n", port->nrxq, port->ntxq);
     return rte_eth_dev_configure(port->port_id, port->nrxq,
             port->ntxq, port->conf);
 }
@@ -119,7 +120,7 @@ port_setup_tx_queues(PortPtr port) {
     int ret = 0; uint32_t txq;
     for (txq = 0; txq < port->ntxq; ++txq ) {
         ret = rte_eth_tx_queue_setup(
-                port->port_id, txq, RX_DESC_DEFAULT,
+                port->port_id, txq, TX_DESC_DEFAULT,
                 port->socket_id, NULL);
 
         if (ret)
@@ -178,6 +179,9 @@ port_create(uint32_t port_id, uint32_t core_id) {
     ret = port_setup_tx_queues(port);
     if (ret < 0) return 0;
 
+    /* Get the port MAC address */
+    rte_eth_macaddr_get(port->port_id, &port->port_mac);
+
     return port;
 }
 
@@ -187,36 +191,122 @@ port_delete(PortPtr __attribute__((unused)) port) {
     return 0;
 }
 
+static void
+port_send_burst(PortPtr port, uint16_t txq) {
+    struct mbuf_table *m_table = &port->tx_tables[txq];
+    struct rte_mbuf   **mbufs   = m_table->tx_bufs;
+    int idx = 0, nb_tx = 0;
+    int port_id = port->port_id;
+
+    if (m_table->len > 0) {
+        int len = m_table->len;
+        while (len != 0) {
+            nb_tx = rte_eth_tx_burst(port_id, txq, mbufs + idx, len);
+            printf("Sending packets: %d, %d\n", len, nb_tx);
+            idx += nb_tx;
+            len -= nb_tx;
+        }
+
+        /* It's the job of rte_eth_tx_burst to release the packets */
+        // len = m_table->len;
+        // for (i = 0; i < len; ++i) {
+        //     rte_pktmbuf_free(mbufs[i]);
+        // }
+        m_table->len = 0;
+    }
+}
+
 void
-port_loop(PortPtr port, LoopFuncPtr rx_func, LoopFuncPtr tx_func) {
-    int rxq = 0, port_id = port->port_id, nb_rx = 0;
+port_loop(PortPtr port, LoopRxFuncPtr rx_func, LoopIdleFuncPtr idle_func) {
+    int rxq = 0, nb_rx = 0, port_id = port->port_id, txq = 0;
     struct rte_mbuf *pkts[MAX_PKT_BURST];
 
-    while (true) {
+    while (1) {
         /* Consume Receive Queues */
         for (rxq = 0; rxq < port->nrxq; ++rxq) {
-            nb_rx = rte_eth_rx_burst(port_id, rxq, pkts, port->rx_burst_Size);
+            nb_rx = rte_eth_rx_burst(port_id, rxq, pkts, port->rx_burst_size);
             if (nb_rx > 0) {
-                func(port, rxq, pkts); 
+                rx_func(port, rxq, pkts, nb_rx); 
             }
         }
 
         /* Drain Transmit Queues */
         for (txq = 0; txq < port->ntxq; ++txq) {
-            struct mbuf_table *m_table = port->tx_tables[txq];
-
-            if (m_table.len > 0) {
-                nb_tx = rte_eth_tx_burst(port_id, txq, m_table->tx_bufs, len);
-                len -= nb_tx;
-            }
+            port_send_burst(port, txq);
         }
+
+        idle_func(port);
     }
 }
 
-inline int
-port_send_packet(PortPtr port, uint16_t queue, struct rte_mbuf *pkt) {
-    struct mbuf_table *m_table = port->mbuf_table[queue];
+int
+port_send_packet(PortPtr port, uint16_t txq, struct rte_mbuf *pkt) {
+    struct mbuf_table *m_table = &port->tx_tables[txq];
+    struct rte_mbuf   **mbufs   = m_table->tx_bufs;
+
     int len = m_table->len;
-    m_table->tx_bufs[len] = pkt;
-    m_table->len++;
+    if (unlikely(len == MAX_PKT_BURST)) {
+        // Send a burst of packets when the queue is full
+        port_send_burst(port, txq);
+        len = 0;
+    }
+
+    mbufs[len] = pkt;
+    len++;
+    m_table->len = len;
+    return 0;
+}
+
+inline uint32_t
+port_id(PortPtr port) { return port->port_id; };
+
+inline uint32_t
+port_core_id(PortPtr port) { return port->core_id; };
+
+void
+port_print_mac(PortPtr port) {
+    struct ether_addr *mac = &port->port_mac;
+
+    printf("Port (MAC: %d): %02X:%02X:%02X:%02X:%02X:%02X\n",
+            port->port_id,
+            mac->addr_bytes[0],
+            mac->addr_bytes[1],
+            mac->addr_bytes[2],
+            mac->addr_bytes[3],
+            mac->addr_bytes[4],
+            mac->addr_bytes[5]);
+}
+
+void
+port_print_stats(PortPtr port) {
+    struct rte_eth_stats *port_stats = &port->port_stats;
+
+    uint64_t l_time     = port->port_stats_time;
+    uint64_t l_opackets = port_stats->opackets;
+    uint64_t l_ipackets = port_stats->ipackets;
+
+    rte_eth_stats_get(port->port_id, port_stats);
+    port->port_stats_time = rte_get_tsc_cycles();
+
+    uint64_t l_hertz = rte_get_tsc_hz();
+    double elapsed_time_s = (double)(port->port_stats_time - l_time) / (l_hertz);
+    //double elapsed_time_ms = elapsed_time_s * 1000.0f;
+
+    double o_rate = (port_stats->opackets - l_opackets) / (elapsed_time_s);
+    double i_rate = (port_stats->ipackets - l_ipackets) / (elapsed_time_s);
+
+    printf(
+".------------------------------------------------------------------.\n\
+| Port (%1d) - MAC [%02X:%02X:%02X:%02X:%2X:%02X]                               |\n\
+|------------------------------------------------------------------|\n\
+| Out: %15" PRIu64 " | Rate: %10.2f | Error: %15" PRIu64 " |\n\
+|------------------------------------------------------------------|\n\
+| In : %15" PRIu64 " | Rate: %10.2f | Error: %15" PRIu64 " |\n\
+*------------------------------------------------------------------*\n",
+            port->port_id,
+            port->port_mac.addr_bytes[0], port->port_mac.addr_bytes[1],
+            port->port_mac.addr_bytes[2], port->port_mac.addr_bytes[3],
+            port->port_mac.addr_bytes[4], port->port_mac.addr_bytes[5],
+            port_stats->opackets, o_rate, port_stats->oerrors,
+            port_stats->ipackets, i_rate, port_stats->ierrors);
 }

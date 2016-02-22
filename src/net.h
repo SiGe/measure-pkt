@@ -27,11 +27,39 @@
 
 typedef struct Port* PortPtr;
 typedef struct PortStats* PortStatsPtr;
-typedef void (*LoopFuncPtr)(PortPtr, uint32_t, struct rte_mbuf**, uint32_t);
+typedef void (*LoopRxFuncPtr)(PortPtr, uint32_t, struct rte_mbuf**, uint32_t);
+typedef void (*LoopIdleFuncPtr)(PortPtr);
 
-PortPtr port_create(uint32_t, uint32_t);
-int     port_start(PortPtr);
-int     port_delete(PortPtr);
-void    port_loop(PortPtr, LoopFuncPtr);
+/* Create a port object for port_id on core_id */
+PortPtr     port_create(uint32_t, uint32_t);
+
+/* Configure and start the port in DPDK mode */
+int         port_start(PortPtr);
+
+/* Delete the port */
+int         port_delete(PortPtr);
+
+/* Send a single packet on port/queue_id */
+int         port_send_packet(PortPtr, uint16_t, struct rte_mbuf *);
+
+/* Run the loop function of the port:
+ * Looping involves three steps:
+ *      Receiving packets: LoopRxFuncPtr
+ *      Transmiting pending packets
+ *      Run the idle function of the user: LoopIdleFuncPtr
+ */
+void        port_loop(PortPtr, LoopRxFuncPtr, LoopIdleFuncPtr);
+
+/* Returns the port id */
+uint32_t    port_id(PortPtr);
+
+/* Returns the core id that the port is running on  */
+uint32_t    port_core_id(PortPtr);
+
+/* Prints out the port MAC address */
+void        port_print_mac(PortPtr);
+
+/* Print port stats */
+void        port_print_stats(PortPtr);
 
 #endif // _NET_H_
