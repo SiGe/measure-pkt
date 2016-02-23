@@ -202,7 +202,6 @@ port_send_burst(PortPtr port, uint16_t txq) {
         int len = m_table->len;
         while (len != 0) {
             nb_tx = rte_eth_tx_burst(port_id, txq, mbufs + idx, len);
-            printf("Sending packets: %d, %d\n", len, nb_tx);
             idx += nb_tx;
             len -= nb_tx;
         }
@@ -299,9 +298,9 @@ port_print_stats(PortPtr port) {
 ".------------------------------------------------------------------.\n\
 | Port (%1d) - MAC [%02X:%02X:%02X:%02X:%2X:%02X]                               |\n\
 |------------------------------------------------------------------|\n\
-| Out: %15" PRIu64 " | Rate: %10.2f | Error: %15" PRIu64 " |\n\
+| Out: %15" PRIu64 " | Rate: %10.0f | Error: %15" PRIu64 " |\n\
 |------------------------------------------------------------------|\n\
-| In : %15" PRIu64 " | Rate: %10.2f | Error: %15" PRIu64 " |\n\
+| In : %15" PRIu64 " | Rate: %10.0f | Error: %15" PRIu64 " |\n\
 *------------------------------------------------------------------*\n",
             port->port_id,
             port->port_mac.addr_bytes[0], port->port_mac.addr_bytes[1],

@@ -45,7 +45,8 @@ APP = l2fwd
 SRCS-y := src/main.c src/memory.c src/net.c src/pkt.c src/console.c
 
 CFLAGS += -O3
-# CFLAGS += -O0 -g
+LDFLAGS += -lpcap
+#CFLAGS += -O0 -g
 CFLAGS += $(WERROR_FLAGS)
 
 include $(RTE_SDK)/mk/rte.extapp.mk
