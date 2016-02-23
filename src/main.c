@@ -3,11 +3,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <pcap/pcap.h>
+
 #include "rte_common.h"
 #include "rte_cycles.h"
 #include "rte_eal.h"
 #include "rte_ethdev.h"
 #include "rte_lcore.h"
+#include "rte_malloc.h"
 #include "rte_mbuf.h"
 
 #include "common.h"
@@ -31,6 +34,21 @@
 
 */
 
+static struct rte_mempool *g_tx_pkts = NULL;
+static struct rte_mbuf *g_tx_ptr[64] = {0};
+
+static ConsolePtr g_console = 0;
+
+char *g_pkts = 0;
+uint32_t g_count = 0;
+char *g_pkt_ptr = 0;
+char *g_pkts_end = 0;
+
+void print_stats(PortPtr port);
+void initialize(void);
+int core_loop(void *);
+void pcap_load_file(const char *file);
+void pcap_delete(void);
 void null_rx_ptr(PortPtr port, uint32_t queue, struct rte_mbuf** pkts, uint32_t count);
 void null_ptr(PortPtr port);
 
@@ -46,18 +64,43 @@ null_rx_ptr(PortPtr __attribute__((unused)) port,
     }
 }
 
-static struct rte_mempool *tx_pkts = NULL;
-static struct rte_mbuf *tx_ptr[64] = {0};
-static uint8_t pkts_sent = 0;
-static ConsolePtr g_console = 0;
-
-void print_stats(PortPtr port);
-void initialize(void);
-int core_loop(void *);
 
 void print_stats(PortPtr port) {
     console_clear();
     port_print_stats(port);
+}
+
+void pcap_load_file(const char *file) {
+    unsigned char const *packet = 0;
+    struct pcap_pkthdr header;
+    pcap_t *handle;
+    char errbuf[PCAP_ERRBUF_SIZE];
+    g_count = 0;
+
+    if (g_pkts) {
+        pcap_delete();
+    }
+
+    handle = pcap_open_offline(file, errbuf);
+    while ((packet = pcap_next(handle, &header))) { g_count++; }
+    pcap_close(handle);
+
+    g_pkts = rte_malloc(0, 64 * g_count, 64);
+    handle = pcap_open_offline(file, errbuf);
+    char *pkts = g_pkts;
+    while ((packet = pcap_next(handle, &header))) { 
+        if ((g_count % 1000000) == 0) printf("Loaded %d packets.\n", g_count);
+        rte_memcpy(pkts, packet, header.caplen);
+        pkts += 64;
+    }
+    g_pkts_end = pkts;
+    g_pkt_ptr = g_pkts;
+    pcap_close(handle);
+}
+
+void pcap_delete(void) {
+    rte_free(g_pkts);
+    g_pkts = 0;
 }
 
 int core_loop(void *ptr) {
@@ -70,24 +113,36 @@ int core_loop(void *ptr) {
     return 0;
 }
 
+#define NUM_PKTS_TO_SEND 64
+
 inline void 
 null_ptr(PortPtr port) {
     if (unlikely(console_refresh(g_console))) {
         print_stats(port);
     }
 
-    if (likely(pkts_sent == 1))
-        return;
+    if (unlikely(g_pkts_end < g_pkt_ptr)) g_pkt_ptr = g_pkts;
+
+    struct rte_mbuf **ptr = g_tx_ptr;
+    rte_mempool_sc_get_bulk(g_tx_pkts, (void **)ptr, NUM_PKTS_TO_SEND);
 
     int i = 0;
-    for (i = 0; i < 64; ++i)
-        port_send_packet(port, 0, tx_ptr[i]);
-    pkts_sent = 1;
+    for (i = 0; i < NUM_PKTS_TO_SEND; ++i) {
+        rte_memcpy((uint8_t*)(ptr[i]->buf_addr) + ptr[i]->data_off, g_pkt_ptr, 64);
+
+        ptr[i]->data_len = 64;
+        ptr[i]->pkt_len  = 64;
+
+        port_send_packet(port, 0, ptr[i]);
+
+        g_pkt_ptr += 64;
+        if (unlikely(g_pkts_end < g_pkt_ptr)) g_pkt_ptr = g_pkts;
+    }
 }
 
 void
 initialize(void) {
-    g_console = console_create(5000);
+    g_console = console_create(1000);
 }
 
 int
@@ -113,28 +168,11 @@ main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    tx_pkts = rte_pktmbuf_pool_create("testing", 2047, 15, 0, 2048, socket_id);
-    if (!tx_pkts)
+    g_tx_pkts = rte_pktmbuf_pool_create("testing", 2047, 15, 0, 2048, socket_id);
+    if (!g_tx_pkts)
         return 0;
 
-    struct rte_mbuf **ptr = tx_ptr;
-    rte_mempool_sc_get_bulk(tx_pkts, (void **)ptr, 64);
-    const char pkt[] = {
-       0xc8, 0x1f, 0x66, 0xdd , 0x3e, 0xec, 0x68, 0x05, 0xca, 0x1e, 0xa5, 0xe4, 0x08, 0x00, 0x45, 0x00,
-       0x00, 0x28, 0x00, 0x01 , 0x00, 0x00, 0x40, 0x06, 0x48, 0xd7, 0xa2, 0xae, 0xcc, 0x3c, 0x5e, 0x39,
-       0x64, 0xd4, 0x00, 0x50 , 0x06, 0xd7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x50, 0x02,
-       0x20, 0x00, 0x56, 0xc3 , 0x00, 0x00          
-    };
-
-    int i = 0;
-    for (i = 0; i < 64; ++i) {
-        memcpy((uint8_t*)(ptr[i]->buf_addr) + ptr[i]->data_off,
-            pkt, sizeof(pkt));
-
-        ptr[i]->data_len = sizeof(pkt);
-        ptr[i]->pkt_len = sizeof(pkt);
-    }
-    
+    pcap_load_file(argv[1]);
 
     initialize();
     port_start(port);
@@ -142,6 +180,8 @@ main(int argc, char **argv) {
     sleep(5);
     rte_eal_remote_launch(core_loop, port, 1);
     rte_eal_mp_wait_lcore();
+
+    pcap_delete();
     // port_loop(port, null_rx_ptr, null_ptr);
 
     return 0;
