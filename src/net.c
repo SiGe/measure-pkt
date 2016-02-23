@@ -34,6 +34,7 @@
 #include "rte_mempool.h"
 
 #include "common.h"
+#include "debug.h"
 #include "memory.h"
 #include "net.h"
 
@@ -78,7 +79,7 @@ struct Port {
 
 static int
 port_configure(PortPtr port) {
-    RTE_LOG(INFO, USER1,
+    RTE_LOG(INFO, APP,
         "Creating port with %d RX rings and %d TX rings\n", port->nrxq, port->ntxq);
     return rte_eth_dev_configure(port->port_id, port->nrxq,
             port->ntxq, port->conf);
@@ -155,8 +156,8 @@ port_create(uint32_t port_id, uint32_t core_id) {
 
     /* Warn if the core and port are not in the same NUMA domain */
     if (port->socket_id != rte_lcore_to_socket_id(core_id)) {
-        RTE_LOG(WARNING, USER1,
-                "Port and socket not on the same core (port: %d, socket: %d)",
+        RTE_LOG(WARNING, APP,
+                "Port and socket not on the same core (port: %d, socket: %d)\n",
                 port->port_id, port->core_id);
     }
 
@@ -215,18 +216,30 @@ port_send_burst(PortPtr port, uint16_t txq) {
     }
 }
 
+static uint64_t rx_time_sample = 0;
+static uint64_t rx_packets = 0;
+static uint64_t rx_time = 0;
+static uint64_t rx_start_cycle = 0;
+static uint64_t rx_end_cycle = 0;
+
 void
 port_loop(PortPtr port, LoopRxFuncPtr rx_func, LoopIdleFuncPtr idle_func) {
     int rxq = 0, nb_rx = 0, port_id = port->port_id, txq = 0;
     struct rte_mbuf *pkts[MAX_PKT_BURST];
+    int burst_size = port->rx_burst_size;
+
+    (void)(rx_func);
 
     while (1) {
+        sample_time(rx_time_sample, 4096) {
+            rx_start_cycle = rte_get_tsc_cycles();
+        }
+
         /* Consume Receive Queues */
         for (rxq = 0; rxq < port->nrxq; ++rxq) {
-            nb_rx = rte_eth_rx_burst(port_id, rxq, pkts, port->rx_burst_size);
-            if (nb_rx > 0) {
-                rx_func(port, rxq, pkts, nb_rx); 
-            }
+            nb_rx = rte_eth_rx_burst(port_id, rxq, pkts, burst_size);
+            rx_func(port, rxq, pkts, nb_rx); 
+
         }
 
         /* Drain Transmit Queues */
@@ -235,6 +248,16 @@ port_loop(PortPtr port, LoopRxFuncPtr rx_func, LoopIdleFuncPtr idle_func) {
         }
 
         idle_func(port);
+
+        sample_time(rx_time_sample, 4096) {
+            rx_end_cycle = rte_get_tsc_cycles();
+            if (nb_rx != 0) {
+                rx_packets += nb_rx;
+                rx_time += (rx_end_cycle - rx_start_cycle);
+            }
+        }
+
+        sample_done(rx_time_sample, 4096);
     }
 }
 
@@ -301,11 +324,16 @@ port_print_stats(PortPtr port) {
 | Out: %15" PRIu64 " | Rate: %10.0f | Error: %15" PRIu64 " |\n\
 |------------------------------------------------------------------|\n\
 | In : %15" PRIu64 " | Rate: %10.0f | Error: %15" PRIu64 " |\n\
+|------------------------------------------------------------------|\n\
+| Cycles per packet: %15.0f                               |\n\
+| RX Mbuf misses   : %15" PRIu64 "                               |\n\
 *------------------------------------------------------------------*\n",
             port->port_id,
             port->port_mac.addr_bytes[0], port->port_mac.addr_bytes[1],
             port->port_mac.addr_bytes[2], port->port_mac.addr_bytes[3],
             port->port_mac.addr_bytes[4], port->port_mac.addr_bytes[5],
             port_stats->opackets, o_rate, port_stats->oerrors,
-            port_stats->ipackets, i_rate, port_stats->ierrors);
+            port_stats->ipackets, i_rate, port_stats->imissed,
+            (double)(rx_time)/(double)(rx_packets),
+            port_stats->rx_nombuf);
 }

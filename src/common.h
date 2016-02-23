@@ -26,15 +26,21 @@
 #define _COMMON_H_
 
 #define HUGE_PAGE_SIZE ((2<<20) - 1)
-#define PORT_PKTMBUF_POOL_SIZE ((1 << 8) - 1)
+#define PORT_PKTMBUF_POOL_SIZE 8191
 
 /* Advised to have a size where ME_PORT_PKTMBUF_POOL_SIZE modulo num == 0 */
-#define PORT_PKTMBUF_POOL_CACHE_SIZE ((17))  
+#define PORT_PKTMBUF_POOL_CACHE_SIZE ((250))  
 
-#define MAX_NUM_SOCKETS 4   /* Total number of possible sockets in the system */
-#define TX_DESC_DEFAULT 512 /* Mempool size for the TX queue */
-#define RX_DESC_DEFAULT 128 /* Mempool size for the RX queue */
-#define MAX_PKT_BURST   32  /* Maximum number of packets received in a burst */
-#define MAX_QUEUES      4   /* Maximum number of queues */
+#define MAX_NUM_SOCKETS 4    /* Total number of possible sockets in the system */
+#define RX_DESC_DEFAULT 512  /* Mempool size for the RX queue */
+#define TX_DESC_DEFAULT 512  /* Mempool size for the TX queue */
+#define MAX_PKT_BURST   32   /* Maximum number of packets received in a burst */
+#define MAX_QUEUES      4    /* Maximum number of queues */
+
+#include "rte_mbuf.h"
+#define MBUF_SIZE (1600 + sizeof(struct rte_mbuf) + RTE_PKTMBUF_HEADROOM)
+
+#include "rte_log.h"
+#define RTE_LOGTYPE_APP RTE_LOGTYPE_USER1
 
 #endif // _COMMON_H_
