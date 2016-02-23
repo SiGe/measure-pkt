@@ -138,6 +138,7 @@ null_ptr(PortPtr port) {
         g_pkt_ptr += 64;
         if (unlikely(g_pkts_end < g_pkt_ptr)) g_pkt_ptr = g_pkts;
     }
+    rte_delay_us(3);
 }
 
 void
