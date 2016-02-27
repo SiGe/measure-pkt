@@ -52,6 +52,9 @@ void pcap_delete(void);
 void null_rx_ptr(PortPtr port, uint32_t queue, struct rte_mbuf** pkts, uint32_t count);
 void null_ptr(PortPtr port);
 
+#define NUM_PKTS_TO_SEND 64
+#define PKT_LEN 52
+
 inline void 
 null_rx_ptr(PortPtr __attribute__((unused)) port, 
         uint32_t  __attribute__((unused)) queue,
@@ -70,6 +73,8 @@ void print_stats(PortPtr port) {
     port_print_stats(port);
 }
 
+static const uint8_t dst_mac[] = {0x68, 0x05, 0xCA, 0x1E, 0xA5, 0xE4};
+
 void pcap_load_file(const char *file) {
     unsigned char const *packet = 0;
     struct pcap_pkthdr header;
@@ -85,13 +90,16 @@ void pcap_load_file(const char *file) {
     while ((packet = pcap_next(handle, &header))) { g_count++; }
     pcap_close(handle);
 
-    g_pkts = rte_malloc(0, 64 * g_count, 64);
+    g_pkts = rte_malloc(0, PKT_LEN * g_count, 64);
     handle = pcap_open_offline(file, errbuf);
     char *pkts = g_pkts;
+    uint8_t pkt_len = 0;
     while ((packet = pcap_next(handle, &header))) { 
         if ((g_count % 1000000) == 0) printf("Loaded %d packets.\n", g_count);
-        rte_memcpy(pkts, packet, header.caplen);
-        pkts += 64;
+        pkt_len = (header.caplen > PKT_LEN) ? PKT_LEN : header.caplen;
+        rte_memcpy(pkts, packet, pkt_len);
+	rte_memcpy(pkts, dst_mac, 6);
+        pkts += PKT_LEN;
     }
     g_pkts_end = pkts;
     g_pkt_ptr = g_pkts;
@@ -113,8 +121,6 @@ int core_loop(void *ptr) {
     return 0;
 }
 
-#define NUM_PKTS_TO_SEND 64
-
 inline void 
 null_ptr(PortPtr port) {
     if (unlikely(console_refresh(g_console))) {
@@ -128,17 +134,17 @@ null_ptr(PortPtr port) {
 
     int i = 0;
     for (i = 0; i < NUM_PKTS_TO_SEND; ++i) {
-        rte_memcpy((uint8_t*)(ptr[i]->buf_addr) + ptr[i]->data_off, g_pkt_ptr, 64);
+        rte_memcpy((uint8_t*)(ptr[i]->buf_addr) + ptr[i]->data_off, g_pkt_ptr, PKT_LEN);
 
-        ptr[i]->data_len = 64;
-        ptr[i]->pkt_len  = 64;
+        ptr[i]->data_len = PKT_LEN;
+        ptr[i]->pkt_len  = PKT_LEN;
 
         port_send_packet(port, 0, ptr[i]);
 
-        g_pkt_ptr += 64;
+        g_pkt_ptr += PKT_LEN;
         if (unlikely(g_pkts_end < g_pkt_ptr)) g_pkt_ptr = g_pkts;
     }
-    rte_delay_us(3);
+    //rte_delay_us(3);
 }
 
 void
