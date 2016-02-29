@@ -7,54 +7,55 @@
 #include "rte_cycles.h"
 #include "rte_eal.h"
 #include "rte_ethdev.h"
+#include "rte_ip.h"
 #include "rte_lcore.h"
+#include "rte_malloc.h"
 #include "rte_mbuf.h"
 
 #include "common.h"
 #include "console.h"
 #include "memory.h"
+#include "module.h"
 #include "net.h"
 #include "pkt.h"
 
+#include "modules/count_array.h"
+#include "modules/super_spreader.h"
+
 #define CORE_ID 7
-
-/*
-    How to configure the ports:
-     1) Find where each port is, i.e., which socket? rte_eth_dev_socket_id
-     2) Configure the port with rte_eth_dev_configure
-     3) Configure the receive ports with rte_eth_rx_queue_setup (pass mbuf_pool)
-     4) Configure the send ports with rte_eth_tx_queue_setup    (pass
-     5) Start the device with rte_eth_dev_start
-     6) Set the promisciouos mode
-     7) Start a function on every core, rte_eal_mp_remote_launch:
-         7.1) receive bursts with: rte_eth_rx_burst
-         7.2) send packets with: rte_eth_tx_burst
-         7.n) rte_eal_wait_lcore
-
-*/
+#define COUNT_ARRAY_SIZE ((1<<22) - 1) // Size is 32 * 4 MB
+#define SUPER_SPREADER_SIZE ((1<<20) - 1) // Size is 32 * 4 MB
 
 void null_rx_ptr(PortPtr port, uint32_t queue, struct rte_mbuf** pkts, uint32_t count);
 void null_ptr(PortPtr port);
 void stats_ptr(PortPtr port);
-
-inline void 
-null_rx_ptr(PortPtr __attribute__((unused)) port, 
-        uint32_t  __attribute__((unused)) queue,
-        struct rte_mbuf **pkts,
-        uint32_t count) {
-    uint32_t i = 0;
-    for (i = 0; i <count; ++i) {
-        // pkt_print(pkts[i]);
-        rte_pktmbuf_free(pkts[i]);
-    }
-}
-
-static ConsolePtr g_console = 0;
-
 void print_stats(PortPtr port);
 void initialize(void);
 int core_loop(void *);
 int stats_loop(void *);
+void cleanup(void);
+
+static ConsolePtr g_console = 0;
+ModulePtr g_ca_module = 0;
+ModulePtr g_ss_module = 0;
+
+__attribute__((optimize("unroll-loops")))
+inline void 
+null_rx_ptr(PortPtr __attribute__((unused)) port, 
+        uint32_t  __attribute__((unused)) queue,
+        struct rte_mbuf ** __restrict__ pkts,
+        uint32_t count) {
+    uint16_t i = 0;
+
+    g_ca_module->execute(
+           g_ca_module, port, pkts, count);
+    g_ss_module->execute(
+           g_ss_module, port, pkts, count);
+
+    for (i = 0; i < count; ++i) {
+        rte_pktmbuf_free(pkts[i]);
+    }
+}
 
 void print_stats(PortPtr port) {
     console_clear();
@@ -94,6 +95,13 @@ stats_ptr(PortPtr port) {
 void
 initialize(void) {
     g_console = console_create(1000);
+    g_ca_module = (ModulePtr)count_array_init(COUNT_ARRAY_SIZE);
+    g_ss_module = (ModulePtr)super_spreader_init(SUPER_SPREADER_SIZE);
+}
+
+void
+cleanup(void){
+    count_array_delete(g_ca_module);
 }
 
 int
@@ -119,13 +127,14 @@ main(int argc, char **argv) {
     }
 
     initialize();
+    atexit(cleanup);
+
     port_start(port);
     port_print_mac(port);
-    sleep(5);
+
     rte_eal_remote_launch(core_loop, port, CORE_ID);
     rte_eal_remote_launch(stats_loop, port, 2);
     rte_eal_mp_wait_lcore();
-    // port_loop(port, null_rx_ptr, null_ptr);
 
     return 0;
 }

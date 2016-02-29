@@ -54,7 +54,9 @@ static struct rte_eth_conf port_conf = {
 
 struct mbuf_table {
     struct rte_mbuf     *tx_bufs[MAX_PKT_BURST];
+    struct rte_mbuf     *rx_bufs[MAX_RX_BURST];
     uint32_t             len;
+    uint32_t             rx_len;
 };
 
 struct Port {
@@ -71,7 +73,7 @@ struct Port {
     struct rte_eth_conf *conf;  /* Ethernet config */
     struct rte_mempool  *pool;  /* DPDK pktmbuf pool */
 
-    struct mbuf_table    tx_tables[MAX_QUEUES];
+    struct mbuf_table    rxtx_tables[MAX_QUEUES];
     struct rte_eth_stats port_stats;      /* Port statistics */
     uint64_t             port_stats_time; /* Time when the port stat snapshot was taken */
     struct ether_addr    port_mac;
@@ -194,7 +196,7 @@ port_delete(PortPtr __attribute__((unused)) port) {
 
 static void
 port_send_burst(PortPtr port, uint16_t txq) {
-    struct mbuf_table *m_table = &port->tx_tables[txq];
+    struct mbuf_table *m_table = &port->rxtx_tables[txq];
     struct rte_mbuf   **mbufs   = m_table->tx_bufs;
     int idx = 0, nb_tx = 0;
     int port_id = port->port_id;
@@ -207,39 +209,66 @@ port_send_burst(PortPtr port, uint16_t txq) {
             len -= nb_tx;
         }
 
-        /* It's the job of rte_eth_tx_burst to release the packets */
-        // len = m_table->len;
-        // for (i = 0; i < len; ++i) {
-        //     rte_pktmbuf_free(mbufs[i]);
-        // }
         m_table->len = 0;
     }
 }
 
+#define RX_HIST_SIZE 4096
+#define BUCKET_SIZE  16
 static uint64_t rx_time_sample = 0;
 static uint64_t rx_packets = 0;
 static uint64_t rx_time = 0;
 static uint64_t rx_start_cycle = 0;
 static uint64_t rx_end_cycle = 0;
+static uint64_t rx_loop_count = 0;
+static uint64_t rx_histogram[RX_HIST_SIZE] = {0};
+static uint16_t rx_hist_bucket = 0;
 
 void
 port_loop(PortPtr port, LoopRxFuncPtr rx_func, LoopIdleFuncPtr idle_func) {
-    int rxq = 0, nb_rx = 0, port_id = port->port_id, txq = 0;
-    struct rte_mbuf *pkts[MAX_PKT_BURST];
-    int burst_size = port->rx_burst_size;
+    uint8_t rxq = 0, nb_rx = 0, port_id = port->port_id, txq = 0;
+    uint16_t burst_size = port->rx_burst_size;
+    uint16_t half_burst_size = burst_size / 2;
+    uint64_t rx_diff = 0;
+    double   rx_per_packet = 0;
 
     (void)(rx_func);
+    (void)(rx_time_sample);
+    (void)(half_burst_size);
 
     while (1) {
-        sample_time(rx_time_sample, 4096) {
-            rx_start_cycle = rte_get_tsc_cycles();
-        }
-
         /* Consume Receive Queues */
         for (rxq = 0; rxq < port->nrxq; ++rxq) {
-            nb_rx = rte_eth_rx_burst(port_id, rxq, pkts, burst_size);
-            rx_func(port, rxq, pkts, nb_rx); 
+            struct mbuf_table *table = &port->rxtx_tables[rxq];
 
+            do {
+                struct rte_mbuf **pkts = table->rx_bufs + table->rx_len;
+                nb_rx = rte_eth_rx_burst(port_id, rxq, pkts, burst_size);
+                table->rx_len += nb_rx;
+
+                if (unlikely(table->rx_len >= (MAX_RX_BURST)/2)) {
+                    uint32_t rx_len = table->rx_len;
+
+                    rx_start_cycle = rte_get_tsc_cycles();
+                    rx_func(port, rxq, table->rx_bufs, rx_len); 
+                    rx_end_cycle = rte_get_tsc_cycles();
+
+                    table->rx_len = 0;
+
+                    if (likely(rx_len > 0)) {
+                        rx_packets += rx_len;
+                        rx_diff = (rx_end_cycle - rx_start_cycle);
+                        rx_time += rx_diff;
+                        rx_per_packet = (double)(rx_diff)/(double)(rx_len);
+                        rx_loop_count++;
+
+                        rx_hist_bucket = (uint64_t)((rx_per_packet)/BUCKET_SIZE);
+                        if (rx_hist_bucket > RX_HIST_SIZE)
+                            rx_hist_bucket = RX_HIST_SIZE - 1;
+                        rx_histogram[rx_hist_bucket] += rx_len;
+                    }
+                }
+            } while (nb_rx == burst_size);
         }
 
         /* Drain Transmit Queues */
@@ -248,22 +277,12 @@ port_loop(PortPtr port, LoopRxFuncPtr rx_func, LoopIdleFuncPtr idle_func) {
         }
 
         idle_func(port);
-
-        sample_time(rx_time_sample, 4096) {
-            rx_end_cycle = rte_get_tsc_cycles();
-            if (nb_rx != 0) {
-                rx_packets += nb_rx;
-                rx_time += (rx_end_cycle - rx_start_cycle);
-            }
-        }
-
-        sample_done(rx_time_sample, 4096);
     }
 }
 
 int
 port_send_packet(PortPtr port, uint16_t txq, struct rte_mbuf *pkt) {
-    struct mbuf_table *m_table = &port->tx_tables[txq];
+    struct mbuf_table *m_table = &port->rxtx_tables[txq];
     struct rte_mbuf   **mbufs   = m_table->tx_bufs;
 
     int len = m_table->len;
@@ -299,6 +318,33 @@ port_print_mac(PortPtr port) {
             mac->addr_bytes[5]);
 }
 
+static uint32_t
+rx_percentile(double percentile) {
+    double packet_count = (rx_packets * percentile)/ 100.0f;
+    uint32_t i = 0;
+    uint64_t total_packet = 0;
+    for (i = 0; i < RX_HIST_SIZE; ++i) {
+        total_packet += rx_histogram[i];
+
+        if (total_packet > packet_count)
+            return (i) * BUCKET_SIZE;
+    }
+
+    return RX_HIST_SIZE * BUCKET_SIZE;
+}
+
+static double
+rx_average(void) {
+    uint32_t i = 0;
+    double total_packet = 0;
+    for (i = 0; i < RX_HIST_SIZE; ++i) {
+        total_packet += (rx_histogram[i] * i * BUCKET_SIZE);
+    }
+
+    return total_packet/rx_packets + BUCKET_SIZE/2;
+}
+
+
 void
 port_print_stats(PortPtr port) {
     struct rte_eth_stats *port_stats = &port->port_stats;
@@ -325,8 +371,18 @@ port_print_stats(PortPtr port) {
 |------------------------------------------------------------------|\n\
 | In : %15" PRIu64 " | Rate: %10.0f | Error: %15" PRIu64 " |\n\
 |------------------------------------------------------------------|\n\
-| Cycles per packet: %15.0f                               |\n\
-| RX Mbuf misses   : %15" PRIu64 "                               |\n\
+| Avg burst size   : %15.4f                               |\n\
+|------------------------------------------------------------------|\n\
+| Cycles per packet : %15.0f                              |\n\
+| 99.9999 Percentile: %15.4f                              |\n\
+| 99.999  Percentile: %15.4f                              |\n\
+| 99.99   Percentile: %15.4f                              |\n\
+| 99.9    Percentile: %15.4f                              |\n\
+| 99.0    Percentile: %15.4f                              |\n\
+| 95.0    Percentile: %15.4f                              |\n\
+| 90.0    Percentile: %15.4f                              |\n\
+| 50.0    Percentile: %15.4f                              |\n\
+| Average Cycles pp.: %15.4f                              |\n\
 *------------------------------------------------------------------*\n",
             port->port_id,
             port->port_mac.addr_bytes[0], port->port_mac.addr_bytes[1],
@@ -334,6 +390,25 @@ port_print_stats(PortPtr port) {
             port->port_mac.addr_bytes[4], port->port_mac.addr_bytes[5],
             port_stats->opackets, o_rate, port_stats->oerrors,
             port_stats->ipackets, i_rate, port_stats->imissed,
+            (double)(rx_packets)/(double)(rx_loop_count),
             (double)(rx_time)/(double)(rx_packets),
-            port_stats->rx_nombuf);
+            (double)rx_percentile(99.9999),
+            (double)rx_percentile(99.999),
+            (double)rx_percentile(99.99),
+            (double)rx_percentile(99.9),
+            (double)rx_percentile(99.0),
+            (double)rx_percentile(95.0),
+            (double)rx_percentile(90.0),
+            (double)rx_percentile(50.0),
+            (double)rx_average()
+            );
+
+#ifdef DEBUG
+    static struct rte_eth_xstats g_stats[1024];
+    int n = 0, i = 0;
+    n = rte_eth_xstats_get(port->port_id, g_stats, 1024);
+    for (i = 0; i < n; ++i) {
+        printf("%s: %" PRIu64 "\n", g_stats[i].name, g_stats[i].value);
+    }
+#endif
 }

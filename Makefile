@@ -42,9 +42,10 @@ include $(RTE_SDK)/mk/rte.vars.mk
 APP = l2fwd
 
 # all source are stored in SRCS-y
-SRCS-y := src/main.c src/memory.c src/net.c src/pkt.c src/console.c
+SRCS-y := src/main.c src/memory.c src/net.c src/pkt.c src/console.c \
+   	src/vendor/murmur3.c src/modules/count_array.c src/modules/super_spreader.c
 
-CFLAGS += -O3
+CFLAGS += -O3 -g
 LDFLAGS += -lpcap
 #CFLAGS += -O0 -g
 CFLAGS += $(WERROR_FLAGS)
