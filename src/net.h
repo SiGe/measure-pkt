@@ -62,4 +62,7 @@ void        port_print_mac(PortPtr);
 /* Print port stats */
 void        port_print_stats(PortPtr);
 
+/*TODO: remove later */
+extern uint32_t g_reset;
+
 #endif // _NET_H_

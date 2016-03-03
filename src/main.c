@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,43 +15,86 @@
 
 #include "common.h"
 #include "console.h"
+#include "hopscotch.h"
 #include "memory.h"
 #include "module.h"
 #include "net.h"
 #include "pkt.h"
 
 #include "modules/count_array.h"
-#include "modules/super_spreader.h"
+//#include "modules/super_spreader.h"
+
+#include "vendor/murmur3.h"
 
 #define CORE_ID 7
 #define COUNT_ARRAY_SIZE ((1<<22) - 1) // Size is 32 * 4 MB
 #define SUPER_SPREADER_SIZE ((1<<20) - 1) // Size is 32 * 4 MB
 
-void null_rx_ptr(PortPtr port, uint32_t queue, struct rte_mbuf** pkts, uint32_t count);
-void null_ptr(PortPtr port);
+void rx_modules(PortPtr port, uint32_t queue, struct rte_mbuf** pkts, uint32_t count);
+void null_func(PortPtr port);
+
 void stats_ptr(PortPtr port);
 void print_stats(PortPtr port);
 void initialize(void);
-int core_loop(void *);
-int stats_loop(void *);
 void cleanup(void);
+
+int  core_loop(void *);
+int  stats_loop(void *);
 
 static ConsolePtr g_console = 0;
 ModulePtr g_ca_module = 0;
 ModulePtr g_ss_module = 0;
+HopscotchHashPtr g_table = 0;
+
+
+/* Hopscotch pointer */
+static void *h_entry = 0; //hopscotch_first(g_table);
+static void const *h_end = 0;// hopscotch_end(g_table);
+
+
+static uint32_t
+count_occupied(void) {
+    void *ptr = hopscotch_first(g_table);
+    void const *end = hopscotch_end(g_table);
+    uint32_t count = 0;
+
+    while (ptr < end) {
+        count += (hopscotch_is_set(ptr) == 1);
+        ptr = hopscotch_next(g_table, ptr);
+    }
+
+    return count;
+}
 
 __attribute__((optimize("unroll-loops")))
 inline void 
-null_rx_ptr(PortPtr __attribute__((unused)) port, 
+rx_modules(PortPtr __attribute__((unused)) port, 
         uint32_t  __attribute__((unused)) queue,
         struct rte_mbuf ** __restrict__ pkts,
         uint32_t count) {
-    uint16_t i = 0;
+    if (count == 0) return;
 
-    g_ca_module->execute(
-           g_ca_module, port, pkts, count);
-    g_ss_module->execute(
-           g_ss_module, port, pkts, count);
+
+    uint16_t i = 0;
+    uint8_t *pkt = 0;
+
+    printf("Before: %u\n", count_occupied());
+    for (i = 0; i < count; ++i) {
+        pkt = rte_pktmbuf_mtod(pkts[i], uint8_t *);
+        rte_prefetch0(pkt);
+        hopscotch_add(g_table, pkt + 24 /* Get to srcip and dstip */);
+    }
+
+    //g_ca_module->execute(g_ca_module, port, h_entry, g_table);
+
+    for (i = 0; i < HOPSCOTCH_SWEEP_SIZE; ++i) {
+        hopscotch_clear(h_entry);
+        h_entry = hopscotch_next(g_table, h_entry);
+
+        if (unlikely(h_entry >= hopscotch_end(g_table))) {
+            h_entry = hopscotch_first(g_table);
+        }
+    }
 
     for (i = 0; i < count; ++i) {
         rte_pktmbuf_free(pkts[i]);
@@ -68,7 +112,7 @@ int core_loop(void *ptr) {
         return 0;
 
     printf("Running function on lcore: %d\n", rte_lcore_id());
-    port_loop(port, null_rx_ptr, null_ptr);
+    port_loop(port, rx_modules, null_func);
     return 0;
 }
 
@@ -82,7 +126,7 @@ int stats_loop(void *ptr) {
 }
 
 inline void 
-null_ptr(PortPtr __attribute__((unused)) port) {
+null_func(PortPtr __attribute__((unused)) port) {
 }
 
 inline void 
@@ -92,16 +136,27 @@ stats_ptr(PortPtr port) {
     }
 }
 
+static inline uint32_t
+murmur_hash_func(void const *ptr) {                                                                                  
+    uint32_t ret = 0;
+    MurmurHash3_x86_32( ptr, 2, 1, &ret);
+    return ret;
+}    
+
 void
 initialize(void) {
+    g_table = hopscotch_create(8, 8, HASH_BUFFER_SIZE, murmur_hash_func);
     g_console = console_create(1000);
     g_ca_module = (ModulePtr)count_array_init(COUNT_ARRAY_SIZE);
-    g_ss_module = (ModulePtr)super_spreader_init(SUPER_SPREADER_SIZE);
+    //g_ss_module = (ModulePtr)super_spreader_init(SUPER_SPREADER_SIZE);
+    h_entry = hopscotch_first(g_table);
+    h_end = hopscotch_end(g_table);
 }
 
 void
 cleanup(void){
     count_array_delete(g_ca_module);
+    free(g_table);
 }
 
 int

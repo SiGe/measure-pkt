@@ -41,49 +41,45 @@ inline void
 super_spreader_execute(
         ModulePtr module_,
         PortPtr port __attribute__((unused)),
-        struct rte_mbuf ** __restrict__ pkts,
+        void const **pkts,
         uint32_t count) {
+
     ModuleSuperSpreaderPtr module = (ModuleSuperSpreaderPtr)module_;
     uint32_t size = module->size;
     struct SSField *table = module->table;
     uint32_t *hashes = module->hashes;
-    uint32_t i = 0, hash = 0;
-    void const *ptr = 0;
-    struct ipv4_hdr const *hdr = 0;
 
-    for (i = 0; i < count; ++i) {
-        rte_prefetch0(pkts[i]);
-    }
+    uint32_t hash = 0;
+    void *ptr = hopscotch_first(htable);
+    void const *end = hopscotch_end(htable);
+    uint16_t hash_count = 0;
 
-    for (i = 0; i < count; ++i) {
-        hdr = get_ipv4(pkts[i]); 
-        ptr = &(hdr->src_addr);
-        MurmurHash3_x86_32(ptr, 4, 1, &hash);
-        hash = hash & size;
-        rte_prefetch0(&table[hash]);
-        hashes[i] = hash;
-    }
+    while (ptr < end) {
+        for (; ptr < end; ptr = hopscotch_next(htable, ptr)) {
+            if (likely(!hopscotch_set(ptr))) continue;
+            // MurmurHash3_x86_32(ptr, 4, 1, &hash);
+            hash = hash & size;
+            rte_prefetch0(&table[hash]);
+            hashes[hash_count] = hash;
+            hash_count += 1;
 
-    uint32_t srcip = 0;
-    uint8_t const *dstip;
-    struct SSField *field = 0;
-    uint8_t  bit = 0;
-    uint64_t bit_field = 0;
-    uint64_t seen = 0;
-    for (i = 0; i < count; ++i) {
-        field = &table[hashes[i]];
-        hdr = get_ipv4(pkts[i]); 
-        srcip = hdr->src_addr;
-        dstip = (uint8_t const*)&(hdr->dst_addr);
+            if (hash_count == PREFETCH_SIZE)
+                break;
+        }
 
-        field->src = srcip;
-        bit_hash(bit, dstip);
-        bit_field = 1 << bit;
-        seen = field->bits & bit_field;
-        field->bits |= bit_field;
-        field->count += (seen == 0);
+        // for (i = 0; i < hash_count; ++i) {
+        //     dstip = (uint8_t const*)&(hdr->dst_addr);
+        //     field->src = srcip;
+        //     bit_hash(bit, dstip);
+        //     bit_field = 1 << bit;
+        //     seen = field->bits & bit_field;
+        //     field->bits |= bit_field;
+        //     field->count += (seen == 0);
+        //     table[hashes[i]]++;
 
-        if (field->count > 32)
-            printf("Superspreader: %d, %d\n", srcip, field->count);
+        //     if (field->count > 32)
+        //         printf("Superspreader: %d, %d\n", srcip, field->count);
+        // }
+        hash_count = 0;
     }
 }

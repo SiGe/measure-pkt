@@ -26,6 +26,7 @@
 #define _COUNT_ARRAY_H_
 
 #include "../common.h"
+#include "../hopscotch.h"
 #include "../module.h"
 #include "../net.h"
 
@@ -42,7 +43,6 @@ typedef struct ModuleCountArray* ModuleCountArrayPtr;
 
 ModuleCountArrayPtr count_array_init(uint32_t);
 void count_array_delete(ModulePtr);
-
-void count_array_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
+void count_array_execute(ModulePtr, PortPtr, void const *, HopscotchHashPtr);
 
 #endif

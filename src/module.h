@@ -25,11 +25,11 @@
 #ifndef _MODULE_H_
 #define _MODULE_H_
 
+#include "hopscotch.h"
 #include "net.h"
 
 typedef struct Module* ModulePtr;
-typedef void (*ModuleFunc)(ModulePtr, PortPtr, \
-        struct rte_mbuf ** __restrict__, uint32_t);
+typedef void (*ModuleFunc)(ModulePtr, PortPtr, void const *, HopscotchHashPtr);
 
 struct Module {
     const char name[MAX_MODULE_NAME];

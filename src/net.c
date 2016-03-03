@@ -52,6 +52,10 @@ static struct rte_eth_conf port_conf = {
 	},
 };
 
+
+/* TODO: remove later ... */
+uint32_t g_reset = 0;
+
 struct mbuf_table {
     struct rte_mbuf     *tx_bufs[MAX_PKT_BURST];
     struct rte_mbuf     *rx_bufs[MAX_RX_BURST];
@@ -223,14 +227,28 @@ static uint64_t rx_end_cycle = 0;
 static uint64_t rx_loop_count = 0;
 static uint64_t rx_histogram[RX_HIST_SIZE] = {0};
 static uint16_t rx_hist_bucket = 0;
+static uint64_t rx_diff = 0;
+static double   rx_per_packet = 0;
+
+static void
+record_rx_stats(uint32_t rx_len) {
+    rx_packets    += rx_len;
+    rx_time       += rx_diff;
+    rx_loop_count += 1;
+    rx_diff        = (rx_end_cycle - rx_start_cycle);
+    rx_per_packet  = (double)(rx_diff)/(double)(rx_len);
+    rx_hist_bucket = (uint64_t)((rx_per_packet)/BUCKET_SIZE);
+
+    if (rx_hist_bucket > RX_HIST_SIZE)
+        rx_hist_bucket = RX_HIST_SIZE - 1;
+    rx_histogram[rx_hist_bucket] += rx_len;
+}
 
 void
 port_loop(PortPtr port, LoopRxFuncPtr rx_func, LoopIdleFuncPtr idle_func) {
     uint8_t rxq = 0, nb_rx = 0, port_id = port->port_id, txq = 0;
     uint16_t burst_size = port->rx_burst_size;
     uint16_t half_burst_size = burst_size / 2;
-    uint64_t rx_diff = 0;
-    double   rx_per_packet = 0;
 
     (void)(rx_func);
     (void)(rx_time_sample);
@@ -241,34 +259,21 @@ port_loop(PortPtr port, LoopRxFuncPtr rx_func, LoopIdleFuncPtr idle_func) {
         for (rxq = 0; rxq < port->nrxq; ++rxq) {
             struct mbuf_table *table = &port->rxtx_tables[rxq];
 
-            do {
-                struct rte_mbuf **pkts = table->rx_bufs + table->rx_len;
-                nb_rx = rte_eth_rx_burst(port_id, rxq, pkts, burst_size);
-                table->rx_len += nb_rx;
+            struct rte_mbuf **pkts = table->rx_bufs;
+            nb_rx = rte_eth_rx_burst(port_id, rxq, pkts, burst_size);
+            table->rx_len = nb_rx;
 
-                if (unlikely(table->rx_len >= (MAX_RX_BURST)/2)) {
-                    uint32_t rx_len = table->rx_len;
+            uint32_t rx_len = table->rx_len;
 
-                    rx_start_cycle = rte_get_tsc_cycles();
-                    rx_func(port, rxq, table->rx_bufs, rx_len); 
-                    rx_end_cycle = rte_get_tsc_cycles();
+            rx_start_cycle = rte_get_tsc_cycles();
+            rx_func(port, rxq, table->rx_bufs, rx_len); 
+            rx_end_cycle = rte_get_tsc_cycles();
 
-                    table->rx_len = 0;
+            if (likely(rx_len > 0)) {
+                record_rx_stats(rx_len);
+            }
 
-                    if (likely(rx_len > 0)) {
-                        rx_packets += rx_len;
-                        rx_diff = (rx_end_cycle - rx_start_cycle);
-                        rx_time += rx_diff;
-                        rx_per_packet = (double)(rx_diff)/(double)(rx_len);
-                        rx_loop_count++;
-
-                        rx_hist_bucket = (uint64_t)((rx_per_packet)/BUCKET_SIZE);
-                        if (rx_hist_bucket > RX_HIST_SIZE)
-                            rx_hist_bucket = RX_HIST_SIZE - 1;
-                        rx_histogram[rx_hist_bucket] += rx_len;
-                    }
-                }
-            } while (nb_rx == burst_size);
+            table->rx_len = 0;
         }
 
         /* Drain Transmit Queues */
@@ -383,6 +388,7 @@ port_print_stats(PortPtr port) {
 | 90.0    Percentile: %15.4f                              |\n\
 | 50.0    Percentile: %15.4f                              |\n\
 | Average Cycles pp.: %15.4f                              |\n\
+| G-reset           : %15.4f                              |\n\
 *------------------------------------------------------------------*\n",
             port->port_id,
             port->port_mac.addr_bytes[0], port->port_mac.addr_bytes[1],
@@ -400,7 +406,8 @@ port_print_stats(PortPtr port) {
             (double)rx_percentile(95.0),
             (double)rx_percentile(90.0),
             (double)rx_percentile(50.0),
-            (double)rx_average()
+            (double)rx_average(),
+            (double)g_reset
             );
 
 #ifdef DEBUG

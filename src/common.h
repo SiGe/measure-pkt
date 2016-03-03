@@ -47,4 +47,7 @@
 
 #define MAX_MODULE_NAME 32
 
+#define HOPSCOTCH_SWEEP_SIZE 32
+#define HASH_BUFFER_SIZE 32767
+
 #endif // _COMMON_H_

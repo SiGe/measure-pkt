@@ -26,6 +26,7 @@
 #define _SUPER_SPREADER_H_
 
 #include "../common.h"
+#include "../hopscotch.h"
 #include "../module.h"
 #include "../net.h"
 
@@ -46,6 +47,6 @@ typedef struct ModuleSuperSpreader* ModuleSuperSpreaderPtr;
 
 ModuleSuperSpreaderPtr super_spreader_init(uint32_t);
 void super_spreader_delete(ModulePtr);
-void super_spreader_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
+void super_spreader_execute(ModulePtr, PortPtr, HopscotchHashPtr);
 
 #endif
