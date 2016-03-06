@@ -46,7 +46,13 @@ static struct rte_eth_conf port_conf = {
 		.hw_vlan_filter = 0, /**< VLAN filtering disabled */
 		.jumbo_frame    = 0, /**< Jumbo Frame Support disabled */
 		.hw_strip_crc   = 0, /**< CRC stripped by hardware */
+        .mq_mode        = ETH_MQ_RX_RSS,
 	},
+    .rx_adv_conf = {
+        .rss_conf = {
+            .rss_hf = ETH_RSS_IP
+        },
+    },
 	.txmode = {
 		.mq_mode = ETH_MQ_TX_NONE,
 	},
