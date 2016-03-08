@@ -22,37 +22,44 @@
  * SOFTWARE.
  */
 
-#ifndef _COMMON_H_
-#define _COMMON_H_
+#ifndef _MODULE_RING_H_
+#define _MODULE_RING_H_
 
-#define HUGE_PAGE_SIZE ((2<<20) - 1)
-#define PORT_PKTMBUF_POOL_SIZE ((2<<13)-1)
+#include "rte_ring.h"
 
-/* Advised to have a size where PORT_PKTMBUF_POOL_SIZE modulo num == 0 */
-#define PORT_PKTMBUF_POOL_CACHE_SIZE ((250))  
+#include "../common.h"
+#include "../module.h"
+#include "../net.h"
 
-#define MAX_NUM_SOCKETS 4    /* Total number of possible sockets in the system */
-#define RX_DESC_DEFAULT 2048 /* Mempool size for the RX queue */
-#define TX_DESC_DEFAULT 512  /* Mempool size for the TX queue */
-#define MAX_PKT_BURST   32   /* Maximum number of packets received in a burst */
-#define MAX_RX_BURST    64   /* The amount of packets to process at one time */
-#define MAX_RX_WAIT     4    /* Number of RX wait cycles */
-#define MAX_QUEUES      4    /* Maximum number of queues */
+struct ModuleRingHeader {
+    uint32_t srcip;
+    uint32_t dstip;
 
-#include "rte_mbuf.h"
-#define MBUF_SIZE (1600 + sizeof(struct rte_mbuf) + RTE_PKTMBUF_HEADROOM)
+    uint16_t srcport;
+    uint16_t dstport; 
 
-#include "rte_log.h"
-#define RTE_LOGTYPE_APP RTE_LOGTYPE_USER1
+    uint32_t hash;
+};
 
-// Length of the name of the module
-#define MAX_MODULE_NAME 32
+typedef uint32_t Counter;
+struct ModuleRing {
+    struct Module _m;
 
-// Histogram specification
-#define HIST_SIZE 512
-#define HIST_BUCKET_SIZE  16
+    uint32_t         size;
+    struct rte_ring *ring;
 
-#define MAX_MODULES  4
+    uint8_t          el_size;
+    uint8_t          socket_id;
+    uint32_t         table_idx;
 
+    ModuleRingHeader table[];
+};
 
-#endif // _COMMON_H_
+typedef struct ModuleRing* ModuleRingPtr;
+
+ModuleRingPtr ring_init(uint32_t, uint8_t, uint8_t);
+void ring_delete(ModulePtr);
+
+void ring_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
+
+#endif

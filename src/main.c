@@ -22,14 +22,14 @@
 #include "modules/count_array.h"
 #include "modules/super_spreader.h"
 
-#define CORE_ID 7
+#define PORT_COUNT 2
 #define COUNT_ARRAY_SIZE ((1<<22) - 1) // Size is 32 * 4 MB
 #define SUPER_SPREADER_SIZE ((1<<20) - 1) // Size is 32 * 4 MB
 
-void null_rx_ptr(PortPtr port, uint32_t queue, struct rte_mbuf** pkts, uint32_t count);
-void null_ptr(PortPtr port);
-void stats_ptr(PortPtr port);
-void print_stats(PortPtr port);
+void rx_modules(PortPtr, uint32_t, struct rte_mbuf**, uint32_t);
+void null_ptr(PortPtr);
+void stats_ptr(PortPtr *);
+void print_stats(PortPtr);
 void initialize(void);
 int core_loop(void *);
 int stats_loop(void *);
@@ -39,18 +39,20 @@ static ConsolePtr g_console = 0;
 ModulePtr g_ca_module = 0;
 ModulePtr g_ss_module = 0;
 
+PortPtr ports[PORT_COUNT] = {0};
+
 __attribute__((optimize("unroll-loops")))
 inline void 
-null_rx_ptr(PortPtr __attribute__((unused)) port, 
-        uint32_t  __attribute__((unused)) queue,
+rx_modules(PortPtr port, 
+        uint32_t queue,
         struct rte_mbuf ** __restrict__ pkts,
         uint32_t count) {
     uint16_t i = 0;
 
-    g_ca_module->execute(
-           g_ca_module, port, pkts, count);
-    g_ss_module->execute(
-           g_ss_module, port, pkts, count);
+    for (i = 0; i < port->nrx_modules; ++i) {
+        ModulePtr *m = port->rx_modules[i];
+        m->execute(m, port, pkts, count);
+    }
 
     for (i = 0; i < count; ++i) {
         rte_pktmbuf_free(pkts[i]);
@@ -58,25 +60,20 @@ null_rx_ptr(PortPtr __attribute__((unused)) port,
 }
 
 void print_stats(PortPtr port) {
-    console_clear();
     port_print_stats(port);
 }
 
 int core_loop(void *ptr) {
     PortPtr port = (PortPtr)ptr;
-    if (port_core_id(port) != rte_lcore_id())
-        return 0;
-
-    printf("Running function on lcore: %d\n", rte_lcore_id());
-    port_loop(port, null_rx_ptr, null_ptr);
+    port_loop(port, rx_modules, null_ptr);
     return 0;
 }
 
 int stats_loop(void *ptr) {
-    PortPtr port = (PortPtr)ptr;
+    PortPtr *ports = (PortPtr*)ptr;
     printf("Running stats function on lcore: %d\n", rte_lcore_id());
     while(1) {
-        stats_ptr(port);
+        stats_ptr(ports);
     }
     return 0;
 }
@@ -86,9 +83,12 @@ null_ptr(PortPtr __attribute__((unused)) port) {
 }
 
 inline void 
-stats_ptr(PortPtr port) {
+stats_ptr(PortPtr *ports) {
+    unsigned i;
     if (unlikely(console_refresh(g_console))) {
-        print_stats(port);
+        console_clear();
+        for (i = 0; i < PORT_COUNT; ++i)
+            print_stats(ports[i]);
     }
 }
 
@@ -104,6 +104,11 @@ cleanup(void){
     count_array_delete(g_ca_module);
 }
 
+void
+init_modules(PortPtr port) {
+    
+}
+
 int
 main(int argc, char **argv) {
     int ret = 0;
@@ -115,25 +120,29 @@ main(int argc, char **argv) {
     int nb_ports = 0;
     nb_ports = rte_eth_dev_count();
 
-    int core_id = CORE_ID;
-    int port_id = 0;
-
     printf("Total number of ports: %d\n", nb_ports);
 
-    PortPtr port = port_create(port_id, core_id);
-    if (!port) {
-        port_delete(port);
-        return EXIT_FAILURE;
-    }
+    struct CoreQueuePair pairs0 [] = { { .core_id = 1 }, };
+    struct CoreQueuePair pairs1 [] = { { .core_id = 3 }, };
 
     initialize();
     atexit(cleanup);
 
-    port_start(port);
-    port_print_mac(port);
+    ports[0] = port_create(0, pairs0, sizeof(pairs0)/sizeof(struct CoreQueuePair));
+    if (!ports[0]) { port_delete(ports[0]); return EXIT_FAILURE; }
+    port_start(ports[0]);
+    port_print_mac(ports[0]);
 
-    rte_eal_remote_launch(core_loop, port, CORE_ID);
-    rte_eal_remote_launch(stats_loop, port, 2);
+    ports[1] = port_create(1, pairs1, sizeof(pairs1)/sizeof(struct CoreQueuePair));
+    if (!ports[1]) { port_delete(ports[1]); return EXIT_FAILURE; }
+    port_start(ports[1]);
+    port_print_mac(ports[1]);
+
+    rte_eal_remote_launch(core_loop, ports[0], 1);
+    rte_eal_remote_launch(core_loop, ports[1], 3);
+
+    rte_eal_remote_launch(stats_loop, ports, 2);
+
     rte_eal_mp_wait_lcore();
 
     return 0;
