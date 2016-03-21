@@ -54,5 +54,12 @@
 
 #define MAX_MODULES  4
 
+// Max number of rings that consumer can read off
+#define CONSUMER_MAX_RINGS 4
+
+// Module params
+#define COUNT_ARRAY_SIZE ((1<<22) - 1) // Size is 32 * 4 MB
+#define SUPER_SPREADER_SIZE ((1<<20) - 1) // Size is 32 * 4 MB
+
 
 #endif // _COMMON_H_

@@ -32,6 +32,7 @@ struct CoreQueuePair{
 
 typedef struct Port* PortPtr;
 typedef struct PortStats* PortStatsPtr;
+
 typedef void (*LoopRxFuncPtr)(PortPtr, uint32_t, struct rte_mbuf**, uint32_t);
 typedef void (*LoopIdleFuncPtr)(PortPtr);
 
@@ -61,10 +62,20 @@ uint32_t    port_id(PortPtr);
 /* Returns the core id that the port is running on  */
 uint32_t    port_queue_core_id(PortPtr, uint8_t);
 
+/* Returns the core id that the port is running on  */
+uint32_t    port_socket_id(PortPtr);
+
 /* Prints out the port MAC address */
 void        port_print_mac(PortPtr);
 
 /* Print port stats */
 void        port_print_stats(PortPtr);
+
+/* Add a new module to the port */
+void        port_add_rx_module(PortPtr, void *);
+
+/* Execute all the modules assigned to this port */
+void        port_exec_rx_modules(PortPtr, uint32_t, struct rte_mbuf **, uint32_t);
+void        port_exec_tx_modules(PortPtr, uint32_t, struct rte_mbuf **, uint32_t);
 
 #endif // _NET_H_

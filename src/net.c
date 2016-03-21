@@ -411,6 +411,9 @@ inline uint32_t
 port_id(PortPtr port) {return port->port_id; };
 
 inline uint32_t
+port_socket_id(PortPtr port) {return port->socket_id; };
+
+inline uint32_t
 port_queue_core_id(PortPtr port, uint8_t queue) { return port->tx_queues[queue].core_id; };
 
 void
@@ -523,4 +526,19 @@ port_print_stats(PortPtr port) {
         printf("%s: %" PRIu64 "\n", g_stats[i].name, g_stats[i].value);
     }
 #endif
+}
+
+inline void
+port_exec_rx_modules(PortPtr port, uint32_t __attribute__((unused)) queue,
+        struct rte_mbuf **pkts, uint32_t count) {
+    unsigned i;
+    for (i = 0; i < port->nrx_modules; ++i) {
+        ModulePtr m = (ModulePtr)port->rx_modules[i];
+        m->execute(m, port, pkts, count);
+    }
+}
+
+inline void
+port_add_rx_module(PortPtr port, void *module) {
+    port->rx_modules[port->nrx_modules++] = (ModulePtr)module;
 }

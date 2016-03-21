@@ -19,12 +19,12 @@
 #include "net.h"
 #include "pkt.h"
 
+#include "modules/consumer.h"
 #include "modules/count_array.h"
+#include "modules/ring.h"
 #include "modules/super_spreader.h"
 
 #define PORT_COUNT 2
-#define COUNT_ARRAY_SIZE ((1<<22) - 1) // Size is 32 * 4 MB
-#define SUPER_SPREADER_SIZE ((1<<20) - 1) // Size is 32 * 4 MB
 
 void rx_modules(PortPtr, uint32_t, struct rte_mbuf**, uint32_t);
 void null_ptr(PortPtr);
@@ -32,12 +32,14 @@ void stats_ptr(PortPtr *);
 void print_stats(PortPtr);
 void initialize(void);
 int core_loop(void *);
+int cons_loop(void *);
 int stats_loop(void *);
 void cleanup(void);
 
 static ConsolePtr g_console = 0;
 ModulePtr g_ca_module = 0;
 ModulePtr g_ss_module = 0;
+ConsumerPtr g_consumer = 0;
 
 PortPtr ports[PORT_COUNT] = {0};
 
@@ -49,10 +51,7 @@ rx_modules(PortPtr port,
         uint32_t count) {
     uint16_t i = 0;
 
-    for (i = 0; i < port->nrx_modules; ++i) {
-        ModulePtr *m = port->rx_modules[i];
-        m->execute(m, port, pkts, count);
-    }
+    port_exec_rx_modules(port, queue, pkts, count);
 
     for (i = 0; i < count; ++i) {
         rte_pktmbuf_free(pkts[i]);
@@ -78,6 +77,12 @@ int stats_loop(void *ptr) {
     return 0;
 }
 
+int cons_loop(void *ptr) {
+    ConsumerPtr cn = (ConsumerPtr)ptr;
+    consumer_loop(cn);
+    return 0;
+}
+
 inline void 
 null_ptr(PortPtr __attribute__((unused)) port) {
 }
@@ -89,6 +94,7 @@ stats_ptr(PortPtr *ports) {
         console_clear();
         for (i = 0; i < PORT_COUNT; ++i)
             print_stats(ports[i]);
+        consumer_print_stats(g_consumer);
     }
 }
 
@@ -97,6 +103,7 @@ initialize(void) {
     g_console = console_create(1000);
     g_ca_module = (ModulePtr)count_array_init(COUNT_ARRAY_SIZE);
     g_ss_module = (ModulePtr)super_spreader_init(SUPER_SPREADER_SIZE);
+    g_consumer = consumer_init();
 }
 
 void
@@ -104,9 +111,12 @@ cleanup(void){
     count_array_delete(g_ca_module);
 }
 
-void
+static void
 init_modules(PortPtr port) {
-    
+    static int ring_id = 0;
+    ModuleRingPtr ring = ring_init(ring_id++, 256, 16, port_socket_id(port));
+    port_add_rx_module(port, (ModulePtr)ring);
+    consumer_add_ring(g_consumer, ring_get_ring(ring));
 }
 
 int
@@ -138,9 +148,12 @@ main(int argc, char **argv) {
     port_start(ports[1]);
     port_print_mac(ports[1]);
 
+    init_modules(ports[0]);
+    init_modules(ports[1]);
+
     rte_eal_remote_launch(core_loop, ports[0], 1);
     rte_eal_remote_launch(core_loop, ports[1], 3);
-
+    rte_eal_remote_launch(cons_loop, g_consumer, 11);
     rte_eal_remote_launch(stats_loop, ports, 2);
 
     rte_eal_mp_wait_lcore();

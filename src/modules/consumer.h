@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#ifndef _MODULE_RING_H_
-#define _MODULE_RING_H_
+#ifndef _CONSUMER_H_
+#define _CONSUMER_H_
 
 #include "rte_ring.h"
 
@@ -31,35 +31,14 @@
 #include "../module.h"
 #include "../net.h"
 
-struct ModuleRingHeader {
-    uint32_t srcip;
-    uint32_t dstip;
+#define CONSUMER_BURST_SIZE 4
 
-    uint16_t srcport;
-    uint16_t dstport; 
+typedef struct Consumer* ConsumerPtr;
 
-    uint32_t hash;
-};
-
-typedef uint32_t Counter;
-struct ModuleRing {
-    struct Module _m;
-
-    uint32_t         size;
-    struct rte_ring *ring;
-
-    uint8_t          el_size;
-    uint8_t          socket_id;
-    uint32_t         table_idx;
-
-    struct ModuleRingHeader table[];
-};
-
-typedef struct ModuleRing* ModuleRingPtr;
-
-ModuleRingPtr ring_init(uint32_t, uint32_t, uint8_t, uint8_t);
-void ring_delete(ModulePtr);
-void ring_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
-struct rte_ring *ring_get_ring(ModuleRingPtr);
+ConsumerPtr consumer_init(void);
+int consumer_add_ring(ConsumerPtr, struct rte_ring *);
+void consumer_delete(ConsumerPtr);
+void consumer_loop(ConsumerPtr);
+void consumer_print_stats(ConsumerPtr);
 
 #endif
