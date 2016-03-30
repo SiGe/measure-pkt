@@ -23,8 +23,8 @@
 #include "modules/super_spreader.h"
 
 #define CORE_ID 7
-#define COUNT_ARRAY_SIZE ((1<<22) - 1) // Size is 32 * 4 MB
-#define SUPER_SPREADER_SIZE ((1<<20) - 1) // Size is 32 * 4 MB
+#define COUNT_ARRAY_SIZE ((1<<22) - 1) // Size is 8 * 4 MB
+#define SUPER_SPREADER_SIZE ((1<<20) - 1) // Size is 2 * 16 MB
 
 void null_rx_ptr(PortPtr port, uint32_t queue, struct rte_mbuf** pkts, uint32_t count);
 void null_ptr(PortPtr port);
@@ -50,7 +50,7 @@ null_rx_ptr(PortPtr __attribute__((unused)) port,
     g_ca_module->execute(
            g_ca_module, port, pkts, count);
     g_ss_module->execute(
-           g_ss_module, port, pkts, count);
+            g_ss_module, port, pkts, count);
 
     for (i = 0; i < count; ++i) {
         rte_pktmbuf_free(pkts[i]);
@@ -119,7 +119,6 @@ main(int argc, char **argv) {
     int port_id = 0;
 
     printf("Total number of ports: %d\n", nb_ports);
-
     PortPtr port = port_create(port_id, core_id);
     if (!port) {
         port_delete(port);

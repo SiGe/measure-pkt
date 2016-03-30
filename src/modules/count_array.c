@@ -45,18 +45,18 @@ count_array_execute(
     Counter *table = module->table;
     uint32_t *hashes = module->hashes;
     uint32_t i = 0, hash = 0;
-    //void const *ptr = 0;
-    //struct ipv4_hdr const *hdr = 0;
+    void const *ptr = 0;
+    struct ipv4_hdr const *hdr = 0;
 
     for (i = 0; i < count; ++i) {
         rte_prefetch0(pkts[i]);
     }
 
     for (i = 0; i < count; ++i) {
-        //hdr = get_ipv4(pkts[i]); 
-        //ptr = &(hdr->src_addr);
-        hash = pkts[i]->hash.rss;
-        //MurmurHash3_x86_32(ptr, 8, 1, &hash);
+        hdr = get_ipv4(pkts[i]); 
+        ptr = &(hdr->src_addr);
+        //hash = pkts[i]->hash.rss;
+        MurmurHash3_x86_32(ptr, 8, 1, &hash);
         hash = hash & size;
         rte_prefetch0(&table[hash]);
         hashes[i] = hash;

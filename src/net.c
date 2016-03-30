@@ -369,13 +369,16 @@ port_print_stats(PortPtr port) {
     double o_rate = (port_stats->opackets - l_opackets) / (elapsed_time_s);
     double i_rate = (port_stats->ipackets - l_ipackets) / (elapsed_time_s);
 
+    //static uint64_t last_ipackets = 0;
+    //static uint64_t last_imissed  = 0;
+
     printf(
 ".------------------------------------------------------------------.\n\
 | Port (%1d) - MAC [%02X:%02X:%02X:%02X:%2X:%02X]                               |\n\
 |------------------------------------------------------------------|\n\
 | Out: %15" PRIu64 " | Rate: %10.0f | Error: %15" PRIu64 " |\n\
 |------------------------------------------------------------------|\n\
-| In : %15" PRIu64 " | Rate: %10.0f | Error: %15" PRIu64 " |\n\
+| In : %15" PRIu64 " | Rate: %10.0f | Error: %15" PRIu64 " | Loss: %.2f \n\
 |------------------------------------------------------------------|\n\
 | Avg burst size   : %15.4f                               |\n\
 |------------------------------------------------------------------|\n\
@@ -395,7 +398,7 @@ port_print_stats(PortPtr port) {
             port->port_mac.addr_bytes[2], port->port_mac.addr_bytes[3],
             port->port_mac.addr_bytes[4], port->port_mac.addr_bytes[5],
             port_stats->opackets, o_rate, port_stats->oerrors,
-            port_stats->ipackets, i_rate, port_stats->imissed,
+            port_stats->ipackets, i_rate, port_stats->imissed, (double)((port_stats->imissed ) * 100.0f)/(port_stats->imissed + port_stats->ipackets + 1),
             (double)(rx_packets)/(double)(rx_loop_count),
             (double)(rx_time)/(double)(rx_packets),
             (double)rx_percentile(99.9999),
@@ -408,6 +411,9 @@ port_print_stats(PortPtr port) {
             (double)rx_percentile(50.0),
             (double)rx_average()
             );
+
+    //last_imissed = port_stats->imissed;
+    //last_ipackets = port_stats->ipackets;
 
 #ifdef DEBUG
     static struct rte_eth_xstats g_stats[1024];
