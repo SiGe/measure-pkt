@@ -16,3 +16,21 @@ void pkt_print(struct rte_mbuf *pkt) {
     }
     printf("\n");
 }
+
+void pkt_print_src_dst_ip(struct rte_mbuf *pkt) {
+    unsigned char *ptr = rte_pktmbuf_mtod(pkt, unsigned char *);
+    uint16_t *ethtype = (uint16_t*)(ptr + 12);
+    unsigned char *src = ptr + 26;
+    unsigned char *dst = ptr + 30;
+
+    printf("%04X, %u.%u.%u.%u -> %u.%u.%u.%u\n", *ethtype,
+            *(src), *(src+1), *(src+2), *(src+3), 
+            *(dst), *(dst+1), *(dst+2), *(dst+3));
+}
+
+inline uint16_t
+pkt_ethtype(struct rte_mbuf *pkt) {
+    unsigned char *ptr = rte_pktmbuf_mtod(pkt, unsigned char *);
+    uint16_t *ethtype = (uint16_t*)(ptr + 12);
+    return (*ethtype);
+}

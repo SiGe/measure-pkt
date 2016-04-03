@@ -22,6 +22,7 @@
  * SOFTWARE.
  */
 
+#include <assert.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,7 +53,8 @@ static struct rte_eth_conf port_conf = {
 	},
     .rx_adv_conf = {
         .rss_conf = {
-            .rss_hf = ETH_RSS_TCP | ETH_RSS_UDP
+            //.rss_hf = ETH_RSS_TCP | ETH_RSS_UDP
+            .rss_hf = ETH_RSS_IP,
         },
     },
 	.txmode = {
@@ -484,7 +486,7 @@ port_print_stats(PortPtr port) {
 |------------------------------------------------------------------|\n\
 | Out: %15" PRIu64 " | Rate: %10.0f | Error: %15" PRIu64 " |\n\
 |------------------------------------------------------------------|\n\
-| In : %15" PRIu64 " | Rate: %10.0f | Error: %15" PRIu64 " |\n\
+| In : %15" PRIu64 " | Rate: %10.0f | Missed: %14" PRIu64 " | Error: %15" PRIu64 " |\n\
 |------------------------------------------------------------------|\n\
 | Avg burst size   : %15.4f                               |\n\
 |------------------------------------------------------------------|\n\
@@ -504,7 +506,7 @@ port_print_stats(PortPtr port) {
             port->port_mac.addr_bytes[2], port->port_mac.addr_bytes[3],
             port->port_mac.addr_bytes[4], port->port_mac.addr_bytes[5],
             port_stats->opackets, o_rate, port_stats->oerrors,
-            port_stats->ipackets, i_rate, port_stats->imissed,
+            port_stats->ipackets, i_rate, port_stats->imissed, port_stats->ierrors,
             (double)(pkt_stats->rx_packets)/(double)(pkt_stats->rx_loop_count),
             (double)(pkt_stats->rx_time)/(double)(pkt_stats->rx_packets),
             (double)rx_percentile(rx_histogram, rx_packets, 99.9999),

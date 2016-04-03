@@ -32,10 +32,10 @@
 #define PORT_PKTMBUF_POOL_CACHE_SIZE ((250))  
 
 #define MAX_NUM_SOCKETS 4    /* Total number of possible sockets in the system */
-#define RX_DESC_DEFAULT 2048 /* Mempool size for the RX queue */
+#define RX_DESC_DEFAULT 512  /* Mempool size for the RX queue */
 #define TX_DESC_DEFAULT 512  /* Mempool size for the TX queue */
 #define MAX_PKT_BURST   32   /* Maximum number of packets received in a burst */
-#define MAX_RX_BURST    64   /* The amount of packets to process at one time */
+#define MAX_RX_BURST    32   /* The amount of packets to process at one time */
 #define MAX_RX_WAIT     4    /* Number of RX wait cycles */
 #define MAX_QUEUES      4    /* Maximum number of queues */
 
@@ -58,7 +58,7 @@
 #define CONSUMER_MAX_RINGS 4
 
 // Module params
-#define COUNT_ARRAY_SIZE ((1<<22) - 1) // Size is 32 * 4 MB
+#define COUNT_ARRAY_SIZE ((1<<24) - 1) // Size is 4 * 4 MB
 #define SUPER_SPREADER_SIZE ((1<<20) - 1) // Size is 32 * 4 MB
 
 

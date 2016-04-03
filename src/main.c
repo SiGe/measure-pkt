@@ -24,6 +24,8 @@
 #include "modules/ring.h"
 #include "modules/super_spreader.h"
 
+#include "dss/hashmap.h"
+
 #define PORT_COUNT 2
 
 void rx_modules(PortPtr, uint32_t, struct rte_mbuf**, uint32_t);
@@ -39,23 +41,40 @@ void cleanup(void);
 static ConsolePtr g_console = 0;
 ModulePtr g_ca_module = 0;
 ModulePtr g_ss_module = 0;
+HashMapPtr g_hashmap = 0;
 ConsumerPtr g_consumer = 0;
 
 PortPtr ports[PORT_COUNT] = {0};
 
-__attribute__((optimize("unroll-loops")))
 inline void 
 rx_modules(PortPtr port, 
         uint32_t queue,
         struct rte_mbuf ** __restrict__ pkts,
         uint32_t count) {
     uint16_t i = 0;
+    (void)(port);
+    (void)(queue);
 
-    port_exec_rx_modules(port, queue, pkts, count);
+    static int pcount = 0;
+
+    //port_exec_rx_modules(port, queue, pkts, count);
+    for (i = 0; i < count; ++i) {
+        rte_prefetch0(pkts[i]);
+    }
 
     for (i = 0; i < count; ++i) {
+        //uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
+        //void *ptr = hashmap_get_nocopy_key(g_hashmap, (pkt + 26));
+        
+        void *ptr = hashmap_get_with_hash(g_hashmap, pkts[i]->hash.rss);
+        uint32_t *bc = (uint32_t*)(ptr); (*bc)++;
         rte_pktmbuf_free(pkts[i]);
     }
+
+    pcount += count;
+
+    if (unlikely(pcount > 100000000))
+        exit(0);
 }
 
 void print_stats(PortPtr port) {
@@ -93,7 +112,24 @@ stats_ptr(PortPtr *ports) {
     if (unlikely(console_refresh(g_console))) {
         console_clear();
         for (i = 0; i < PORT_COUNT; ++i)
-            print_stats(ports[i]);
+            if (ports[i])
+                print_stats(ports[i]);
+
+        printf("Wololo: %d\n", hashmap_count(g_hashmap));
+
+        void *end = hashmap_end(g_hashmap);
+        void *ptr = hashmap_begin(g_hashmap);
+
+        uint32_t count = 0;
+        uint32_t uniq = 0;
+
+        for (; ptr != end; ptr = hashmap_next(g_hashmap, ptr)) {
+            uint32_t val = *((uint32_t*)ptr);
+            if (val != 0) uniq++;
+            count += val;
+        };
+        printf("Wololo: %d, %d/%d\n", count, uniq, hashmap_size(g_hashmap));
+
         consumer_print_stats(g_consumer);
     }
 }
@@ -103,6 +139,7 @@ initialize(void) {
     g_console = console_create(1000);
     g_ca_module = (ModulePtr)count_array_init(COUNT_ARRAY_SIZE);
     g_ss_module = (ModulePtr)super_spreader_init(SUPER_SPREADER_SIZE);
+    g_hashmap = hashmap_create(COUNT_ARRAY_SIZE, 2, 1, 1);
     g_consumer = consumer_init();
 }
 
@@ -119,6 +156,20 @@ init_modules(PortPtr port) {
     consumer_add_ring(g_consumer, ring_get_ring(ring));
 }
 
+static int
+run_port_at(uint32_t port_id, uint32_t core_id) {
+    struct CoreQueuePair pairs0 [] = { { .core_id = 0 }, };
+    pairs0[0].core_id = core_id;
+    PortPtr port = ports[port_id] = port_create(port_id, pairs0,
+            sizeof(pairs0)/sizeof(struct CoreQueuePair));
+    if (!port) { port_delete(port); return EXIT_FAILURE; }
+    port_start(port);
+    port_print_mac(port);
+    init_modules(port);
+    rte_eal_remote_launch(core_loop, port, core_id);
+    return 0;
+}
+
 int
 main(int argc, char **argv) {
     int ret = 0;
@@ -132,30 +183,14 @@ main(int argc, char **argv) {
 
     printf("Total number of ports: %d\n", nb_ports);
 
-    struct CoreQueuePair pairs0 [] = { { .core_id = 1 }, };
-    struct CoreQueuePair pairs1 [] = { { .core_id = 3 }, };
-
     initialize();
     atexit(cleanup);
 
-    ports[0] = port_create(0, pairs0, sizeof(pairs0)/sizeof(struct CoreQueuePair));
-    if (!ports[0]) { port_delete(ports[0]); return EXIT_FAILURE; }
-    port_start(ports[0]);
-    port_print_mac(ports[0]);
+    if (run_port_at(0, 13) != 0) exit(-1);
 
-    ports[1] = port_create(1, pairs1, sizeof(pairs1)/sizeof(struct CoreQueuePair));
-    if (!ports[1]) { port_delete(ports[1]); return EXIT_FAILURE; }
-    port_start(ports[1]);
-    port_print_mac(ports[1]);
 
-    init_modules(ports[0]);
-    init_modules(ports[1]);
-
-    rte_eal_remote_launch(core_loop, ports[0], 1);
-    rte_eal_remote_launch(core_loop, ports[1], 3);
-    rte_eal_remote_launch(cons_loop, g_consumer, 11);
-    rte_eal_remote_launch(stats_loop, ports, 2);
-
+    //rte_eal_remote_launch(cons_loop, g_consumer, 11);
+    rte_eal_remote_launch(stats_loop, ports, 3);
     rte_eal_mp_wait_lcore();
 
     return 0;
