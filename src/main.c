@@ -57,6 +57,7 @@ rx_modules(PortPtr port,
 
     static int pcount = 0;
     uint64_t timer = rte_get_tsc_cycles();
+    (void)(timer);
 
     //port_exec_rx_modules(port, queue, pkts, count);
     for (i = 0; i < count; ++i) {
@@ -69,8 +70,8 @@ rx_modules(PortPtr port,
         
         //void *ptr = hashmap_get_with_hash(g_hashmap, pkts[i]->hash.rss);
         uint32_t *bc = (uint32_t*)(ptr); (*bc)++;
-        uint64_t *time = (uint64_t*)(bc + 1);
-        *time = timer;
+        //uint64_t *time = (uint64_t*)(bc + 1);
+        //*time = timer;
         rte_pktmbuf_free(pkts[i]);
     }
 
@@ -143,7 +144,7 @@ initialize(void) {
     g_ca_module = (ModulePtr)count_array_init(COUNT_ARRAY_SIZE);
     g_ss_module = (ModulePtr)super_spreader_init(SUPER_SPREADER_SIZE);
 
-    g_hashmap = hashmap_create(COUNT_ARRAY_SIZE, 3, 3, 1);
+    g_hashmap = hashmap_create(COUNT_ARRAY_SIZE, 3, 1, 1);
     g_consumer = consumer_init();
 }
 
