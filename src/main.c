@@ -58,6 +58,8 @@ rx_modules(PortPtr port,
     static int pcount = 0;
     uint64_t timer = rte_get_tsc_cycles();
 
+    void *ptrs[MAX_PKT_BURST];
+
     //port_exec_rx_modules(port, queue, pkts, count);
     for (i = 0; i < count; ++i) {
         rte_prefetch0(pkts[i]);
@@ -66,8 +68,14 @@ rx_modules(PortPtr port,
     for (i = 0; i < count; ++i) {
         uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
         void *ptr = hashmap_get_copy_key(g_hashmap, (pkt + 26));
-        
         //void *ptr = hashmap_get_with_hash(g_hashmap, pkts[i]->hash.rss);
+
+        ptrs[i] = ptr;
+        rte_prefetch0(ptr);
+    }
+
+   for (i = 0; i < count; ++i) { 
+        void *ptr = ptrs[i];
         uint32_t *bc = (uint32_t*)(ptr); (*bc)++;
         uint64_t *time = (uint64_t*)(bc + 1);
         *time = timer;
