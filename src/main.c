@@ -56,6 +56,7 @@ rx_modules(PortPtr port,
     (void)(queue);
 
     static int pcount = 0;
+    uint64_t timer = rte_get_tsc_cycles();
 
     //port_exec_rx_modules(port, queue, pkts, count);
     for (i = 0; i < count; ++i) {
@@ -63,18 +64,22 @@ rx_modules(PortPtr port,
     }
 
     for (i = 0; i < count; ++i) {
-        //uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
-        //void *ptr = hashmap_get_nocopy_key(g_hashmap, (pkt + 26));
+        uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
+        void *ptr = hashmap_get_copy_key(g_hashmap, (pkt + 26));
         
-        void *ptr = hashmap_get_with_hash(g_hashmap, pkts[i]->hash.rss);
+        //void *ptr = hashmap_get_with_hash(g_hashmap, pkts[i]->hash.rss);
         uint32_t *bc = (uint32_t*)(ptr); (*bc)++;
+        uint64_t *time = (uint64_t*)(bc + 1);
+        *time = timer;
         rte_pktmbuf_free(pkts[i]);
     }
 
     pcount += count;
 
-    if (unlikely(pcount > 100000000))
+    if (unlikely(pcount > 100000000)) {
+        print_stats(port);
         exit(0);
+    }
 }
 
 void print_stats(PortPtr port) {
@@ -115,8 +120,6 @@ stats_ptr(PortPtr *ports) {
             if (ports[i])
                 print_stats(ports[i]);
 
-        printf("Wololo: %d\n", hashmap_count(g_hashmap));
-
         void *end = hashmap_end(g_hashmap);
         void *ptr = hashmap_begin(g_hashmap);
 
@@ -139,7 +142,8 @@ initialize(void) {
     g_console = console_create(1000);
     g_ca_module = (ModulePtr)count_array_init(COUNT_ARRAY_SIZE);
     g_ss_module = (ModulePtr)super_spreader_init(SUPER_SPREADER_SIZE);
-    g_hashmap = hashmap_create(COUNT_ARRAY_SIZE, 2, 1, 1);
+
+    g_hashmap = hashmap_create(COUNT_ARRAY_SIZE, 3, 3, 1);
     g_consumer = consumer_init();
 }
 
@@ -186,7 +190,7 @@ main(int argc, char **argv) {
     initialize();
     atexit(cleanup);
 
-    if (run_port_at(0, 13) != 0) exit(-1);
+    if (run_port_at(0, 1) != 0) exit(-1);
 
 
     //rte_eal_remote_launch(cons_loop, g_consumer, 11);
