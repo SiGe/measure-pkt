@@ -18,9 +18,12 @@
 #include "module.h"
 #include "net.h"
 #include "pkt.h"
+#include "reporter.h"
 
 #include "modules/consumer.h"
 #include "modules/count_array.h"
+#include "modules/count_array_cuckoo.h"
+#include "modules/count_array_hashmap.h"
 #include "modules/ring.h"
 #include "modules/super_spreader.h"
 
@@ -39,9 +42,16 @@ int stats_loop(void *);
 void cleanup(void);
 
 static ConsolePtr g_console = 0;
+
 ModulePtr g_ca_module = 0;
 ModulePtr g_ss_module = 0;
-HashMapPtr g_hashmap = 0;
+
+ModulePtr g_ca_hm_module = 0;
+ModulePtr g_ca_cc_module = 0;
+ReporterPtr g_reporter = 0;
+int         g_report   = 0;
+
+HashMapPtr  g_hashmap  = 0;
 ConsumerPtr g_consumer = 0;
 
 PortPtr ports[PORT_COUNT] = {0};
@@ -51,35 +61,24 @@ rx_modules(PortPtr port,
         uint32_t queue,
         struct rte_mbuf ** __restrict__ pkts,
         uint32_t count) {
-    uint16_t i = 0;
     (void)(port);
     (void)(queue);
 
-    static int pcount = 0;
-    uint64_t timer = rte_get_tsc_cycles();
-    (void)(timer);
-
-    //port_exec_rx_modules(port, queue, pkts, count);
+    uint16_t i = 0;
     for (i = 0; i < count; ++i) {
         rte_prefetch0(pkts[i]);
     }
 
-    for (i = 0; i < count; ++i) {
-        uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
-        void *ptr = hashmap_get_copy_key(g_hashmap, (pkt + 26));
-        
-        //void *ptr = hashmap_get_with_hash(g_hashmap, pkts[i]->hash.rss);
-        uint32_t *bc = (uint32_t*)(ptr); (*bc)++;
-        //uint64_t *time = (uint64_t*)(bc + 1);
-        //*time = timer;
+    port_exec_rx_modules(port, queue, pkts, count);
+
+    for (i = 0; i < count; ++i) { 
+        uint8_t const *pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
+        pkt += 38;
+        uint32_t pktid = *((uint32_t const*)(pkt));
+        if (!(pktid & REPORT_THRESHOLD)) {
+            g_report = 1;
+        }
         rte_pktmbuf_free(pkts[i]);
-    }
-
-    pcount += count;
-
-    if (unlikely(pcount > 100000000)) {
-        print_stats(port);
-        exit(0);
     }
 }
 
@@ -93,11 +92,33 @@ int core_loop(void *ptr) {
     return 0;
 }
 
+static inline void
+_rsave(FILE *fp, void *data, unsigned unused) {
+    (void)(unused);
+    unsigned char *key = (unsigned char*)(data);
+    fprintf(fp, "%u.%u.%u.%u/%u.%u.%u.%u %u\n",
+            *(key+0), *(key+1), *(key+2), *(key+3),
+            *(key+4), *(key+5), *(key+6), *(key+7),
+            HEAVY_HITTER_THRESHOLD);
+}
+
 int stats_loop(void *ptr) {
     PortPtr *ports = (PortPtr*)ptr;
     printf("Running stats function on lcore: %d\n", rte_lcore_id());
     while(1) {
         stats_ptr(ports);
+
+        if (g_report) {
+            g_report = 0;
+            uint32_t version = reporter_version(g_reporter);
+            char buf[255] = {0};
+            snprintf(buf, 255, "log-%d.log", version);
+            reporter_swap(g_reporter);
+            reporter_save(g_reporter, buf, _rsave);
+            reporter_reset(g_reporter);
+
+            count_array_hashmap_reset(g_ca_hm_module);
+        }
     }
     return 0;
 }
@@ -121,19 +142,7 @@ stats_ptr(PortPtr *ports) {
             if (ports[i])
                 print_stats(ports[i]);
 
-        void *end = hashmap_end(g_hashmap);
-        void *ptr = hashmap_begin(g_hashmap);
-
-        uint32_t count = 0;
-        uint32_t uniq = 0;
-
-        for (; ptr != end; ptr = hashmap_next(g_hashmap, ptr)) {
-            uint32_t val = *((uint32_t*)ptr);
-            if (val != 0) uniq++;
-            count += val;
-        };
-        printf("Wololo: %d, %d/%d\n", count, uniq, hashmap_size(g_hashmap));
-
+        printf("Num heavy-hitters: %u\n", g_reporter->offline_idx);
         consumer_print_stats(g_consumer);
     }
 }
@@ -141,24 +150,33 @@ stats_ptr(PortPtr *ports) {
 void
 initialize(void) {
     g_console = console_create(1000);
+    g_reporter= reporter_init(1024, 8, 1);
+
     g_ca_module = (ModulePtr)count_array_init(COUNT_ARRAY_SIZE);
     g_ss_module = (ModulePtr)super_spreader_init(SUPER_SPREADER_SIZE);
 
-    g_hashmap = hashmap_create(COUNT_ARRAY_SIZE, 3, 1, 1);
+    g_ca_hm_module = (ModulePtr)count_array_hashmap_init(COUNT_ARRAY_SIZE, 2, 3, 1, g_reporter);
+    g_ca_cc_module = (ModulePtr)count_array_cuckoo_init(COUNT_ARRAY_SIZE, 2, 3, 1, g_reporter);
     g_consumer = consumer_init();
 }
 
 void
 cleanup(void){
     count_array_delete(g_ca_module);
+    count_array_hashmap_delete(g_ca_hm_module);
+    count_array_cuckoo_delete(g_ca_cc_module);
+    reporter_free(g_reporter);
 }
 
 static void
 init_modules(PortPtr port) {
-    static int ring_id = 0;
-    ModuleRingPtr ring = ring_init(ring_id++, 256, 16, port_socket_id(port));
-    port_add_rx_module(port, (ModulePtr)ring);
-    consumer_add_ring(g_consumer, ring_get_ring(ring));
+    port_add_rx_module(port, (ModulePtr)g_ca_hm_module);
+    //port_add_rx_module(port, (ModulePtr)g_ca_cc_module);
+
+    //static int ring_id = 0;
+    //ModuleRingPtr ring = ring_init(ring_id++, 256, 16, port_socket_id(port));
+    //port_add_rx_module(port, (ModulePtr)ring);
+    //consumer_add_ring(g_consumer, ring_get_ring(ring));
 }
 
 static int

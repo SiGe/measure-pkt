@@ -22,33 +22,35 @@
  * SOFTWARE.
  */
 
-#ifndef _ME_HASHMAP_H_
-#define _ME_HASHMAP_H_
+#ifndef _COUNT_ARRAY_CUCKOO_H_
+#define _COUNT_ARRAY_CUCKOO_H_
 
-/* Implementation of a hashmap with no collision resolution. If collisions
- * happen we simply overwrite */
-typedef struct HashMap* HashMapPtr; 
+#include "../common.h"
+#include "../module.h"
+#include "../net.h"
+#include "../reporter.h"
 
-/* Create a new hashmap ... row and key sizes are in multiples of 4 bytes -- for
- * better performance due to alignment */
-HashMapPtr hashmap_create(uint32_t, uint16_t, uint16_t, int);
+typedef uint32_t Counter;
+struct ModuleCountArrayCuckoo {
+    struct Module _m;
 
-inline void *hashmap_get_copy_key(HashMapPtr, void const *);
-inline void *hashmap_get_nocopy_key(HashMapPtr, void const *);
-inline void *hashmap_get_with_hash(HashMapPtr, uint32_t);
-inline void hashmap_delete(HashMapPtr);
+    uint32_t  size;
+    unsigned  keysize;
+    unsigned  elsize;
+    unsigned  socket;
 
-inline void *hashmap_begin(HashMapPtr);
-inline void *hashmap_end(HashMapPtr);
-inline void *hashmap_next(HashMapPtr, void *);
-
-uint32_t hashmap_size(HashMapPtr);
-uint32_t hashmap_count(HashMapPtr);
-inline void hashmap_reset(HashMapPtr);
-
-struct hashmap_linear {
-    uint32_t size;
-    uint32_t elsize;
+    struct rte_hash *hashmap;
+    ReporterPtr reporter;
+    
+    uint8_t counters[];
 };
 
-#endif // _HASHMAP_H_
+typedef struct ModuleCountArrayCuckoo* ModuleCountArrayCuckooPtr;
+
+ModuleCountArrayCuckooPtr count_array_cuckoo_init(uint32_t, unsigned,
+        unsigned, unsigned, ReporterPtr);
+
+void count_array_cuckoo_delete(ModulePtr);
+void count_array_cuckoo_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
+
+#endif
