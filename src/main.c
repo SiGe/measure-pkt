@@ -95,8 +95,11 @@ int core_loop(void *ptr) {
 static inline void
 _rsave(FILE *fp, void *data, unsigned unused) {
     (void)(unused);
-    unsigned *key = (unsigned*)(data);
-    fprintf(fp, "%u, %u, %u\n", *(key), *(key+1), *(key+2));
+    unsigned char *key = (unsigned char*)(data);
+    fprintf(fp, "%u.%u.%u.%u/%u.%u.%u.%u %u\n",
+            *(key+0), *(key+1), *(key+2), *(key+3),
+            *(key+4), *(key+5), *(key+6), *(key+7),
+            HEAVY_HITTER_THRESHOLD);
 }
 
 int stats_loop(void *ptr) {
@@ -113,6 +116,8 @@ int stats_loop(void *ptr) {
             reporter_swap(g_reporter);
             reporter_save(g_reporter, buf, _rsave);
             reporter_reset(g_reporter);
+
+            count_array_hashmap_reset(g_ca_hm_module);
         }
     }
     return 0;
@@ -145,13 +150,13 @@ stats_ptr(PortPtr *ports) {
 void
 initialize(void) {
     g_console = console_create(1000);
-    g_reporter= reporter_init(1024, 4, 1);
+    g_reporter= reporter_init(1024, 8, 1);
 
     g_ca_module = (ModulePtr)count_array_init(COUNT_ARRAY_SIZE);
     g_ss_module = (ModulePtr)super_spreader_init(SUPER_SPREADER_SIZE);
 
-    g_ca_hm_module = (ModulePtr)count_array_hashmap_init(COUNT_ARRAY_SIZE, 3, 3, 1, g_reporter);
-    g_ca_cc_module = (ModulePtr)count_array_cuckoo_init(COUNT_ARRAY_SIZE, 3, 3, 1, g_reporter);
+    g_ca_hm_module = (ModulePtr)count_array_hashmap_init(COUNT_ARRAY_SIZE, 2, 3, 1, g_reporter);
+    g_ca_cc_module = (ModulePtr)count_array_cuckoo_init(COUNT_ARRAY_SIZE, 2, 3, 1, g_reporter);
     g_consumer = consumer_init();
 }
 

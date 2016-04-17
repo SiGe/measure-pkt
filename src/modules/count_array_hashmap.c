@@ -69,17 +69,25 @@ count_array_hashmap_execute(
 
 
     ReporterPtr reporter = module->reporter;
-    unsigned keysize = module->keysize;
+    //unsigned keysize = module->keysize;
 
     for (i = 0; i < count; ++i) { 
         void *ptr = ptrs[i];
         uint32_t *bc = (uint32_t*)(ptr); (*bc)++;
 
         if (*bc == HEAVY_HITTER_THRESHOLD) {
-            reporter_add_entry(reporter, ((uint8_t*)ptr) - (keysize * 4));
+            uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
+            reporter_add_entry(reporter, pkt+26);
         }
 
         uint64_t *time = (uint64_t*)(bc + 1);
         *time = timer;
     }
+}
+
+inline void
+count_array_hashmap_reset(ModulePtr module_) {
+    ModuleCountArrayHashmapPtr module = (ModuleCountArrayHashmapPtr)module_;
+
+    hashmap_reset(module->hashmap);
 }

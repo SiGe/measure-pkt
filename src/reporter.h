@@ -25,7 +25,7 @@ struct Reporter {
 };
 
 ReporterPtr reporter_init(unsigned, unsigned, unsigned);
-void reporter_add_entry(ReporterPtr, void*);
+void reporter_add_entry(ReporterPtr, void const*);
 void reporter_swap(ReporterPtr); 
 void reporter_reset(ReporterPtr); 
 uint8_t *reporter_begin(ReporterPtr); /* Always iterate over the offline pointer */

@@ -52,5 +52,6 @@ ModuleCountArrayHashmapPtr count_array_hashmap_init(uint32_t, unsigned,
 
 void count_array_hashmap_delete(ModulePtr);
 void count_array_hashmap_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
+void count_array_hashmap_reset(ModulePtr);
 
 #endif

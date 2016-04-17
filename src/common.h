@@ -62,8 +62,8 @@
 #define SUPER_SPREADER_SIZE ((1<<20) - 1) // Size is 32 * 4 MB
 
 // Report threshold
-#define REPORT_THRESHOLD 0xfffff
-#define HEAVY_HITTER_THRESHOLD 10000
+#define REPORT_THRESHOLD 0x1fffff
+#define HEAVY_HITTER_THRESHOLD 2048
 
 
 #endif // _COMMON_H_

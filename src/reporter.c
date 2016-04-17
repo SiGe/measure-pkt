@@ -6,7 +6,8 @@
 #include "reporter.h"
 
 ReporterPtr reporter_init( unsigned size, unsigned rowsize, unsigned socket) {
-    ReporterPtr reporter = rte_zmalloc_socket(0, sizeof(struct Reporter), 64, socket);
+    ReporterPtr reporter = rte_zmalloc_socket(
+            0, sizeof(struct Reporter), 64, socket);
 
     reporter->ptr1    = rte_zmalloc_socket(0, rowsize * size, 64, socket);
     reporter->ptr2    = rte_zmalloc_socket(0, rowsize * size, 64, socket);
@@ -22,7 +23,7 @@ ReporterPtr reporter_init( unsigned size, unsigned rowsize, unsigned socket) {
 }
 
 inline void
-reporter_add_entry(ReporterPtr rep, void *entry) {
+reporter_add_entry(ReporterPtr rep, void const *entry) {
     rte_memcpy(rep->active + (rep->rowsize * rep->idx), entry, rep->rowsize);
     rep->idx++;
 }
@@ -34,9 +35,7 @@ void reporter_swap(ReporterPtr rep) {
     if (rep->active == rep->ptr2) {
         rep->active = rep->ptr1;
         rep->offline = rep->ptr2;
-    }
-
-    if (rep->active == rep->ptr1) {
+    } else if (rep->active == rep->ptr1) {
         rep->active = rep->ptr2;
         rep->offline = rep->ptr1;
     }

@@ -12,10 +12,15 @@ struct HashMap {
     uint16_t rowsize;
     uint16_t keysize;
     uint16_t elsize;
-    uint64_t version;
 
     int table[];
 };
+
+inline void
+hashmap_reset(HashMapPtr ptr) {
+    ptr->count = 0;
+    memset(ptr->table, 0, ptr->size * (ptr->elsize + ptr->keysize) * sizeof(uint32_t));
+}
 
 HashMapPtr
 hashmap_create(uint32_t size, uint16_t keysize,
