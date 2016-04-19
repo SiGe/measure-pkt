@@ -58,7 +58,7 @@
 #define CONSUMER_MAX_RINGS 4
 
 // Module params
-#define COUNT_ARRAY_SIZE ((1<<23) - 1) // Size is 4 * 4 MB
+#define COUNT_ARRAY_SIZE ((1<<17) - 1) // Size is 4 * 4 MB
 #define SUPER_SPREADER_SIZE ((1<<20) - 1) // Size is 32 * 4 MB
 
 // Report threshold
