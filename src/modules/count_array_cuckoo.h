@@ -40,9 +40,15 @@ struct ModuleCountArrayCuckoo {
     unsigned  socket;
 
     struct rte_hash *hashmap;
+    uint8_t *counters;
+
     ReporterPtr reporter;
-    
-    uint8_t counters[];
+
+    struct rte_hash *key_buf1;
+    struct rte_hash *key_buf2;
+
+    uint8_t *val_buf1;
+    uint8_t *val_buf2;
 };
 
 typedef struct ModuleCountArrayCuckoo* ModuleCountArrayCuckooPtr;
@@ -52,5 +58,7 @@ ModuleCountArrayCuckooPtr count_array_cuckoo_init(uint32_t, unsigned,
 
 void count_array_cuckoo_delete(ModulePtr);
 void count_array_cuckoo_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
+
+void count_array_cuckoo_reset(ModulePtr);
 
 #endif

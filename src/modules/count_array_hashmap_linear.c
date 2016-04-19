@@ -13,35 +13,35 @@
 #include "../net.h"
 #include "../reporter.h"
 
-#include "../dss/hashmap.h"
-#include "count_array_hashmap.h"
+#include "../dss/hashmap_linear.h"
+#include "count_array_hashmap_linear.h"
 
-ModuleCountArrayHashmapPtr count_array_hashmap_init(
+ModuleCountArrayHashmapLinearPtr count_array_hashmap_linear_init(
         uint32_t size, unsigned keysize,
         unsigned elsize, unsigned socket, ReporterPtr reporter) {
-    ModuleCountArrayHashmapPtr module = rte_zmalloc_socket(0,
-            sizeof(struct ModuleCountArrayHashmap), 64, socket); 
+    ModuleCountArrayHashmapLinearPtr module = rte_zmalloc_socket(0,
+            sizeof(struct ModuleCountArrayHashmapLinear), 64, socket); 
 
-    module->_m.execute = count_array_hashmap_execute;
+    module->_m.execute = count_array_hashmap_linear_execute;
     module->size  = size;
     module->keysize = keysize;
     module->elsize = elsize;
     module->socket = socket;
     module->reporter = reporter;
 
-    module->hashmap_ptr1 = hashmap_create(size, keysize, elsize, socket);
-    module->hashmap_ptr2 = hashmap_create(size, keysize, elsize, socket);
+    module->hashmap_linear_ptr1 = hashmap_linear_create(size, keysize, elsize, socket);
+    module->hashmap_linear_ptr2 = hashmap_linear_create(size, keysize, elsize, socket);
 
-    module->hashmap = module->hashmap_ptr1;
+    module->hashmap_linear = module->hashmap_linear_ptr1;
 
     return module;
 }
 
-void count_array_hashmap_delete(ModulePtr module_) {
-    ModuleCountArrayHashmapPtr module = (ModuleCountArrayHashmapPtr)module_;
+void count_array_hashmap_linear_delete(ModulePtr module_) {
+    ModuleCountArrayHashmapLinearPtr module = (ModuleCountArrayHashmapLinearPtr)module_;
 
-    hashmap_delete(module->hashmap_ptr1);
-    hashmap_delete(module->hashmap_ptr2);
+    hashmap_linear_delete(module->hashmap_linear_ptr1);
+    hashmap_linear_delete(module->hashmap_linear_ptr2);
 
     rte_free(module);
 }
@@ -51,23 +51,23 @@ void count_array_hashmap_delete(ModulePtr module_) {
         (sizeof(struct ether_addr))))
 
 inline void
-count_array_hashmap_execute(
+count_array_hashmap_linear_execute(
         ModulePtr module_,
         PortPtr port __attribute__((unused)),
         struct rte_mbuf ** __restrict__ pkts,
         uint32_t count) {
     (void)(port);
 
-    ModuleCountArrayHashmapPtr module = (ModuleCountArrayHashmapPtr)module_;
+    ModuleCountArrayHashmapLinearPtr module = (ModuleCountArrayHashmapLinearPtr)module_;
     uint16_t i = 0;
     uint64_t timer = rte_get_tsc_cycles();
     void *ptrs[MAX_PKT_BURST];
-    HashMapPtr hashmap = module->hashmap;
+    HashMapLinearPtr hashmap_linear = module->hashmap_linear;
 
-    /* Prefetch hashmap entries */
+    /* Prefetch hashmap_linear entries */
     for (i = 0; i < count; ++i) {
         uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
-        void *ptr = hashmap_get_copy_key(hashmap, (pkt + 26));
+        void *ptr = hashmap_linear_get_copy_key(hashmap_linear, (pkt + 26));
 
         ptrs[i] = ptr;
         rte_prefetch0(ptr);
@@ -90,16 +90,16 @@ count_array_hashmap_execute(
 }
 
 inline void
-count_array_hashmap_reset(ModulePtr module_) {
-    ModuleCountArrayHashmapPtr module = (ModuleCountArrayHashmapPtr)module_;
+count_array_hashmap_linear_reset(ModulePtr module_) {
+    ModuleCountArrayHashmapLinearPtr module = (ModuleCountArrayHashmapLinearPtr)module_;
 
-    HashMapPtr prev = module->hashmap;
+    HashMapLinearPtr prev = module->hashmap_linear;
 
-    if (module->hashmap == module->hashmap_ptr1) {
-        module->hashmap = module->hashmap_ptr2;
+    if (module->hashmap_linear == module->hashmap_linear_ptr1) {
+        module->hashmap_linear = module->hashmap_linear_ptr2;
     } else {
-        module->hashmap = module->hashmap_ptr1;
+        module->hashmap_linear = module->hashmap_linear_ptr1;
     }
 
-    hashmap_reset(prev);
+    hashmap_linear_reset(prev);
 }

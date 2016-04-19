@@ -12,11 +12,12 @@
 #include "../vendor/murmur3.h"
 #include "../module.h"
 #include "../net.h"
+#include "../pkt.h"
 #include "../reporter.h"
 
 #include "count_array_cuckoo.h"
 
-static inline uint32_t
+inline static uint32_t
 murmur3_func(const void *key, uint32_t keylen, uint32_t init) {
     uint32_t hash;
     (void)(init);
@@ -24,20 +25,34 @@ murmur3_func(const void *key, uint32_t keylen, uint32_t init) {
     return hash;
 }
 
+inline static unsigned
+val_space_size(ModuleCountArrayCuckooPtr m) {
+    return m->size * m->elsize * 4;
+}
+
 ModuleCountArrayCuckooPtr count_array_cuckoo_init(
         uint32_t size, unsigned keysize,
         unsigned elsize, unsigned socket, ReporterPtr reporter) {
 
-    struct rte_hash_parameters hash_params = {
+    struct rte_hash_parameters hash_params_1 = {
+        .name = "cuckoo_1",
         .entries = size,
-        .key_len  = keysize,
+        .key_len  = keysize * 4,
+        .socket_id = socket,
+        .hash_func = murmur3_func,
+    };
+
+    struct rte_hash_parameters hash_params_2 = {
+        .name = "cuckoo_2",
+        .entries = size,
+        .key_len  = keysize * 4,
         .socket_id = socket,
         .hash_func = murmur3_func,
     };
 
     ModuleCountArrayCuckooPtr module = rte_zmalloc_socket(0,
-            sizeof(struct ModuleCountArrayCuckoo) +
-            size * elsize * 4, 64, socket); 
+            sizeof(struct ModuleCountArrayCuckoo), 64, socket); 
+
 
     module->_m.execute = count_array_cuckoo_execute;
     module->size  = size;
@@ -46,14 +61,26 @@ ModuleCountArrayCuckooPtr count_array_cuckoo_init(
     module->socket = socket;
     module->reporter = reporter;
 
-    module->hashmap = rte_hash_create(&hash_params);
+    /* Create key/value stores */
+    unsigned val_buf_size = val_space_size(module);
+
+    module->val_buf1 = rte_zmalloc_socket(0, val_buf_size, 64, socket);
+    module->val_buf2 = rte_zmalloc_socket(0, val_buf_size, 64, socket);
+    module->counters = module->val_buf1;
+
+    module->key_buf1 = rte_hash_create(&hash_params_1);
+    module->key_buf2 = rte_hash_create(&hash_params_2);
+    module->hashmap = module->key_buf1;
 
     return module;
 }
 
 void count_array_cuckoo_delete(ModulePtr module_) {
     ModuleCountArrayCuckooPtr module = (ModuleCountArrayCuckooPtr)module_;
-    rte_hash_free(module->hashmap);
+    rte_free(module->val_buf1);
+    rte_free(module->val_buf2);
+    rte_hash_free(module->key_buf1);
+    rte_hash_free(module->key_buf2);
     rte_free(module);
 }
 
@@ -77,29 +104,51 @@ count_array_cuckoo_execute(
     uint8_t *end = module->counters;
     unsigned elsize = module->elsize;
 
+    /* Prefetch hashmap entries */
     for (i = 0; i < count; ++i) {
         uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
         int key = rte_hash_add_key(hashmap, pkt+26);
 
         void *ptr = end + (elsize * 4 * key);
+        //printf("Key is: %d\n", key);
+        //pkt_print(pkts[i]);
 
         ptrs[i] = ptr;
         rte_prefetch0(ptr);
     }
 
-
     ReporterPtr reporter = module->reporter;
-    unsigned keysize = module->keysize;
 
+    /* Save and report if necessary */
     for (i = 0; i < count; ++i) { 
         void *ptr = ptrs[i];
         uint32_t *bc = (uint32_t*)(ptr); (*bc)++;
 
         if (*bc == HEAVY_HITTER_THRESHOLD) {
-            reporter_add_entry(reporter, ((uint8_t*)ptr) - (keysize * 4));
+            uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
+            reporter_add_entry(reporter, pkt+26);
         }
 
         uint64_t *time = (uint64_t*)(bc + 1);
         *time = timer;
     }
+}
+
+void
+count_array_cuckoo_reset(ModulePtr module_) {
+    ModuleCountArrayCuckooPtr module = (ModuleCountArrayCuckooPtr)module_;
+
+    struct rte_hash *key_tmp = module->hashmap;
+    uint8_t *val_tmp = module->counters;
+
+    if (module->hashmap == module->key_buf1) {
+        module->hashmap = module->key_buf2;
+        module->counters = module->val_buf2;
+    } else {
+        module->hashmap = module->key_buf1;
+        module->counters = module->val_buf1;
+    }
+
+    rte_hash_reset(key_tmp);
+    memset(val_tmp, 0, val_space_size(module));
 }

@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#ifndef _ME_HASHMAP_H_
-#define _ME_HASHMAP_H_
+#ifndef _HASHMAP_H_
+#define _HASHMAP_H_
 
 /* Implementation of a hashmap with no collision resolution. If collisions
  * happen we simply overwrite */
@@ -45,10 +45,5 @@ inline void *hashmap_next(HashMapPtr, void *);
 uint32_t hashmap_size(HashMapPtr);
 uint32_t hashmap_count(HashMapPtr);
 inline void hashmap_reset(HashMapPtr);
-
-struct hashmap_linear {
-    uint32_t size;
-    uint32_t elsize;
-};
 
 #endif // _HASHMAP_H_

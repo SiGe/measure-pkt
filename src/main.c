@@ -24,6 +24,7 @@
 #include "modules/count_array.h"
 #include "modules/count_array_cuckoo.h"
 #include "modules/count_array_hashmap.h"
+#include "modules/count_array_hashmap_linear.h"
 #include "modules/ring.h"
 #include "modules/super_spreader.h"
 
@@ -47,11 +48,12 @@ ModulePtr g_ca_module = 0;
 ModulePtr g_ss_module = 0;
 
 ModulePtr g_ca_hm_module = 0;
+ModulePtr g_ca_hml_module = 0;
 ModulePtr g_ca_cc_module = 0;
+
 ReporterPtr g_reporter = 0;
 int         g_report   = 0;
 
-HashMapPtr  g_hashmap  = 0;
 ConsumerPtr g_consumer = 0;
 
 PortPtr ports[PORT_COUNT] = {0};
@@ -77,6 +79,7 @@ rx_modules(PortPtr port,
         uint32_t pktid = *((uint32_t const*)(pkt));
         if (!(pktid & REPORT_THRESHOLD)) {
             g_report = 1;
+
         }
         rte_pktmbuf_free(pkts[i]);
     }
@@ -112,12 +115,14 @@ int stats_loop(void *ptr) {
             g_report = 0;
             uint32_t version = reporter_version(g_reporter);
             char buf[255] = {0};
-            snprintf(buf, 255, "log-%d.log", version);
+            snprintf(buf, 255, "log-%04d.log", version);
             reporter_swap(g_reporter);
             reporter_save(g_reporter, buf, _rsave);
             reporter_reset(g_reporter);
 
-            count_array_hashmap_reset(g_ca_hm_module);
+            count_array_cuckoo_reset(g_ca_cc_module);
+            //count_array_hashmap_reset(g_ca_hm_module);
+            //count_array_hashmap_linear_reset(g_ca_hml_module);
         }
     }
     return 0;
@@ -156,6 +161,7 @@ initialize(void) {
     g_ss_module = (ModulePtr)super_spreader_init(SUPER_SPREADER_SIZE);
 
     g_ca_hm_module = (ModulePtr)count_array_hashmap_init(COUNT_ARRAY_SIZE, 2, 3, 1, g_reporter);
+    g_ca_hml_module = (ModulePtr)count_array_hashmap_linear_init(COUNT_ARRAY_SIZE, 2, 3, 1, g_reporter);
     g_ca_cc_module = (ModulePtr)count_array_cuckoo_init(COUNT_ARRAY_SIZE, 2, 3, 1, g_reporter);
     g_consumer = consumer_init();
 }
@@ -164,14 +170,16 @@ void
 cleanup(void){
     count_array_delete(g_ca_module);
     count_array_hashmap_delete(g_ca_hm_module);
+    count_array_hashmap_linear_delete(g_ca_hml_module);
     count_array_cuckoo_delete(g_ca_cc_module);
     reporter_free(g_reporter);
 }
 
 static void
 init_modules(PortPtr port) {
-    port_add_rx_module(port, (ModulePtr)g_ca_hm_module);
-    //port_add_rx_module(port, (ModulePtr)g_ca_cc_module);
+    //port_add_rx_module(port, (ModulePtr)g_ca_hm_module);
+    //port_add_rx_module(port, (ModulePtr)g_ca_hml_module);
+    port_add_rx_module(port, (ModulePtr)g_ca_cc_module);
 
     //static int ring_id = 0;
     //ModuleRingPtr ring = ring_init(ring_id++, 256, 16, port_socket_id(port));

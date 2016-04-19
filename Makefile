@@ -44,6 +44,7 @@ APP = l2fwd
 # all source are stored in SRCS-y
 SRCS-y := \
 	src/dss/hashmap.c \
+	src/dss/hashmap_linear.c \
 	src/console.c \
 	src/main.c \
 	src/memory.c \
@@ -57,6 +58,7 @@ SRCS-y := \
 	src/modules/consumer.c \
 	src/modules/count_array_hashmap.c \
 	src/modules/count_array_cuckoo.c \
+	src/modules/count_array_hashmap_linear.c \
 	
 
 CFLAGS += -O3 -g
