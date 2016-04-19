@@ -120,9 +120,9 @@ int stats_loop(void *ptr) {
             reporter_save(g_reporter, buf, _rsave);
             reporter_reset(g_reporter);
 
-            count_array_cuckoo_reset(g_ca_cc_module);
+            //count_array_cuckoo_reset(g_ca_cc_module);
             //count_array_hashmap_reset(g_ca_hm_module);
-            //count_array_hashmap_linear_reset(g_ca_hml_module);
+            count_array_hashmap_linear_reset(g_ca_hml_module);
         }
     }
     return 0;
@@ -178,8 +178,8 @@ cleanup(void){
 static void
 init_modules(PortPtr port) {
     //port_add_rx_module(port, (ModulePtr)g_ca_hm_module);
-    //port_add_rx_module(port, (ModulePtr)g_ca_hml_module);
-    port_add_rx_module(port, (ModulePtr)g_ca_cc_module);
+    port_add_rx_module(port, (ModulePtr)g_ca_hml_module);
+    //port_add_rx_module(port, (ModulePtr)g_ca_cc_module);
 
     //static int ring_id = 0;
     //ModuleRingPtr ring = ring_init(ring_id++, 256, 16, port_socket_id(port));
