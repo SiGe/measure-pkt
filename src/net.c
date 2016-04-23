@@ -120,6 +120,7 @@ struct Port {
 
     uint8_t nrx_modules;
     uint8_t ntx_modules;
+    uint8_t ticked;
 
     struct PacketStats pkt_stats;
 };
@@ -543,4 +544,19 @@ port_exec_rx_modules(PortPtr port, uint32_t __attribute__((unused)) queue,
 inline void
 port_add_rx_module(PortPtr port, void *module) {
     port->rx_modules[port->nrx_modules++] = (ModulePtr)module;
+}
+
+inline uint32_t
+port_has_ticked(PortPtr port) {
+    return port->ticked;
+}
+
+inline void
+port_set_tick(PortPtr port) {
+    port->ticked = 1;
+}
+
+inline void
+port_clear_tick(PortPtr port) {
+    port->ticked = 0;
 }

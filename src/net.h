@@ -78,4 +78,9 @@ void        port_add_rx_module(PortPtr, void *);
 void        port_exec_rx_modules(PortPtr, uint32_t, struct rte_mbuf **, uint32_t);
 void        port_exec_tx_modules(PortPtr, uint32_t, struct rte_mbuf **, uint32_t);
 
+/* Port signaling option for the modules */
+void        port_set_tick(PortPtr);
+uint32_t    port_has_ticked(PortPtr);
+void        port_clear_tick(PortPtr);
+
 #endif // _NET_H_

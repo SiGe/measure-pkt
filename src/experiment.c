@@ -27,6 +27,7 @@ struct ExpPortModules {
     uint32_t   port_id;
     uint32_t   nconfigs;
     struct ExpModuleConfig *configs[16];
+    PortPtr     port;
 };
 
 struct Experiment {
@@ -277,6 +278,7 @@ void expr_initialize(ExprsPtr exprs, PortPtr port) {
     for (i = 0; i < expr->nport_modules; ++i) {
         struct ExpPortModules *pm = expr->port_modules[i];
         if (pid == pm->port_id) {
+            pm->port = port;
             unsigned j = 0;
             for (j = 0; j < pm->nconfigs; ++j) {
                 struct ExpModuleConfig *cfg = pm->configs[j];
@@ -301,7 +303,6 @@ void expr_cleanup(ExprsPtr exprs) {
         for (j = 0; j < pm->nconfigs; ++j) {
             struct ExpModuleConfig *cfg = pm->configs[j];
 
-            // Create the modules
             if (cfg->module) module_delete_get(cfg->name)(cfg->module);
         }
     }
@@ -313,11 +314,13 @@ void expr_signal(ExprsPtr exprs) {
     for (i = 0; i < expr->nport_modules; ++i) {
         struct ExpPortModules *pm = expr->port_modules[i];
         unsigned j = 0;
-        for (j = 0; j < pm->nconfigs; ++j) {
-            struct ExpModuleConfig *cfg = pm->configs[j];
+        if (port_has_ticked(pm->port)) {
+            port_clear_tick(pm->port);
+            for (j = 0; j < pm->nconfigs; ++j) {
+                struct ExpModuleConfig *cfg = pm->configs[j];
 
-            // Create the modules
-            if (cfg->module) module_reset_get(cfg->name)(cfg->module);
+                if (cfg->module) module_reset_get(cfg->name)(cfg->module);
+            }
         }
     }
 }

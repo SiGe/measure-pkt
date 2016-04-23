@@ -49,8 +49,6 @@ void cleanup(void);
 static ConsolePtr g_console = 0;
 
 ExprsPtr g_exprs = 0;
-int g_report   = 0;
-
 PortPtr ports[PORT_COUNT] = {0};
 
 inline void 
@@ -70,8 +68,7 @@ rx_modules(PortPtr port,
         pkt += 38;
         uint32_t pktid = *((uint32_t const*)(pkt));
         if (!(pktid & REPORT_THRESHOLD)) {
-            g_report = 1;
-
+            port_set_tick(port);
         }
         rte_pktmbuf_free(pkts[i]);
     }
@@ -92,12 +89,7 @@ int stats_loop(void *ptr) {
     printf("Running stats function on lcore: %d\n", rte_lcore_id());
     while(1) {
         stats_ptr(ports);
-
-        if (g_report) {
-            g_report = 0;
-
-            expr_signal(g_exprs);
-        }
+        expr_signal(g_exprs);
     }
     return 0;
 }
@@ -159,11 +151,15 @@ run_port_at(uint32_t port_id, uint32_t core_id) {
 int
 main(int argc, char **argv) {
     int ret = 0;
-    g_exprs = expr_parse("tests/01-hh-hashtable.yaml");
     ret = rte_eal_init(argc, argv);
 
     if (ret < 0)
         rte_exit(EXIT_FAILURE, "Invalid EAL arguments.");
+
+    argc -= ret;
+    argv += ret;
+
+    g_exprs = expr_parse(argv[1]);
 
     int nb_ports = 0;
     nb_ports = rte_eth_dev_count();
@@ -174,8 +170,9 @@ main(int argc, char **argv) {
     atexit(cleanup);
 
     if (run_port_at(0, 1) != 0) exit(-1);
+    if (run_port_at(1, 3) != 0) exit(-1);
 
-    rte_eal_remote_launch(stats_loop, ports, 3);
+    rte_eal_remote_launch(stats_loop, ports, 5);
     rte_eal_mp_wait_lcore();
 
     return 0;
