@@ -30,9 +30,16 @@ val_space_size(ModuleCountArrayCuckooPtr m) {
     return m->size * m->elsize * 4;
 }
 
-ModuleCountArrayCuckooPtr count_array_cuckoo_init(
-        uint32_t size, unsigned keysize,
-        unsigned elsize, unsigned socket, ReporterPtr reporter) {
+ModulePtr count_array_cuckoo_init(ModuleConfigPtr conf) {
+    uint32_t size    = mc_uint32_get(conf, "size");
+    uint32_t keysize = mc_uint32_get(conf, "keysize");
+    uint32_t elsize  = mc_uint32_get(conf, "valsize");
+    uint32_t socket  = mc_uint32_get(conf, "socket");
+
+    ReporterPtr reporter = reporter_init(
+            mc_uint32_get(conf, "reporter-size"), 
+            keysize * 4, socket,
+            mc_string_get(conf, "file-prefix"));
 
     struct rte_hash_parameters hash_params_1 = {
         .name = "cuckoo_1",
@@ -72,7 +79,7 @@ ModuleCountArrayCuckooPtr count_array_cuckoo_init(
     module->key_buf2 = rte_hash_create(&hash_params_2);
     module->hashmap = module->key_buf1;
 
-    return module;
+    return (ModulePtr)module;
 }
 
 void count_array_cuckoo_delete(ModulePtr module_) {
@@ -137,8 +144,9 @@ count_array_cuckoo_execute(
 void
 count_array_cuckoo_reset(ModulePtr module_) {
     ModuleCountArrayCuckooPtr module = (ModuleCountArrayCuckooPtr)module_;
-
     struct rte_hash *key_tmp = module->hashmap;
+    reporter_tick(module->reporter);
+
     uint8_t *val_tmp = module->counters;
 
     if (module->hashmap == module->key_buf1) {

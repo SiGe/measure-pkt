@@ -26,6 +26,7 @@
 #define _COUNT_ARRAY_HASHMAP_H_
 
 #include "../common.h"
+#include "../experiment.h"
 #include "../module.h"
 #include "../net.h"
 #include "../reporter.h"
@@ -50,8 +51,7 @@ struct ModuleCountArrayHashmap {
 
 typedef struct ModuleCountArrayHashmap* ModuleCountArrayHashmapPtr;
 
-ModuleCountArrayHashmapPtr count_array_hashmap_init(uint32_t, unsigned,
-        unsigned, unsigned, ReporterPtr);
+ModulePtr count_array_hashmap_init(ModuleConfigPtr);
 
 void count_array_hashmap_delete(ModulePtr);
 void count_array_hashmap_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);

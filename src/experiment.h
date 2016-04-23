@@ -22,39 +22,24 @@
  * SOFTWARE.
  */
 
-#ifndef _COUNT_ARRAY_HASHMAP_LINEAR_H_
-#define _COUNT_ARRAY_HASHMAP_LINEAR_H_
+#ifndef _EXPERIMENT_H_
+#define _EXPERIMENT_H_
 
-#include "../common.h"
-#include "../experiment.h"
-#include "../module.h"
-#include "../net.h"
-#include "../reporter.h"
+typedef struct Experiments* ExprsPtr;
+typedef struct ExpModuleConfig ModuleConfig;
+typedef ModuleConfig* ModuleConfigPtr;
 
-#include "../dss/hashmap_linear.h"
+#include "net.h"
 
-typedef uint32_t Counter;
-struct ModuleCountArrayHashmapLinear {
-    struct Module _m;
+ExprsPtr expr_parse(const char *fname);
 
-    uint32_t  size;
-    unsigned  keysize;
-    unsigned  elsize;
-    unsigned  socket;
+void expr_initialize(ExprsPtr, PortPtr );
+void expr_cleanup(ExprsPtr);
+void expr_signal(ExprsPtr);
 
-    ReporterPtr reporter;
-    HashMapLinearPtr hashmap_linear;
+uint32_t    mc_uint32_get  (ModuleConfigPtr, char const *);
+unsigned    mc_unsigned_get(ModuleConfigPtr, char const *);
+char const *mc_string_get  (ModuleConfigPtr, char const *);
 
-    HashMapLinearPtr hashmap_linear_ptr1;
-    HashMapLinearPtr hashmap_linear_ptr2;
-};
-
-typedef struct ModuleCountArrayHashmapLinear* ModuleCountArrayHashmapLinearPtr;
-
-ModulePtr count_array_hashmap_linear_init(ModuleConfigPtr);
-
-void count_array_hashmap_linear_delete(ModulePtr);
-void count_array_hashmap_linear_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
-void count_array_hashmap_linear_reset(ModulePtr);
 
 #endif

@@ -12,8 +12,11 @@
 #include "rte_malloc.h"
 #include "rte_mbuf.h"
 
+#include "assert.h"
+#include "bootstrap.h"
 #include "common.h"
 #include "console.h"
+#include "experiment.h"
 #include "memory.h"
 #include "module.h"
 #include "net.h"
@@ -23,12 +26,13 @@
 #include "modules/consumer.h"
 #include "modules/count_array.h"
 #include "modules/count_array_cuckoo.h"
+#include "modules/count_array_cuckoo_local.h"
 #include "modules/count_array_hashmap.h"
 #include "modules/count_array_hashmap_linear.h"
 #include "modules/ring.h"
 #include "modules/super_spreader.h"
 
-#include "dss/hashmap.h"
+#include "dss/hashmap_cuckoo.h"
 
 #define PORT_COUNT 2
 
@@ -44,17 +48,8 @@ void cleanup(void);
 
 static ConsolePtr g_console = 0;
 
-ModulePtr g_ca_module = 0;
-ModulePtr g_ss_module = 0;
-
-ModulePtr g_ca_hm_module = 0;
-ModulePtr g_ca_hml_module = 0;
-ModulePtr g_ca_cc_module = 0;
-
-ReporterPtr g_reporter = 0;
-int         g_report   = 0;
-
-ConsumerPtr g_consumer = 0;
+ExprsPtr g_exprs = 0;
+int g_report   = 0;
 
 PortPtr ports[PORT_COUNT] = {0};
 
@@ -63,9 +58,6 @@ rx_modules(PortPtr port,
         uint32_t queue,
         struct rte_mbuf ** __restrict__ pkts,
         uint32_t count) {
-    (void)(port);
-    (void)(queue);
-
     uint16_t i = 0;
     for (i = 0; i < count; ++i) {
         rte_prefetch0(pkts[i]);
@@ -95,16 +87,6 @@ int core_loop(void *ptr) {
     return 0;
 }
 
-static inline void
-_rsave(FILE *fp, void *data, unsigned unused) {
-    (void)(unused);
-    unsigned char *key = (unsigned char*)(data);
-    fprintf(fp, "%u.%u.%u.%u/%u.%u.%u.%u %u\n",
-            *(key+0), *(key+1), *(key+2), *(key+3),
-            *(key+4), *(key+5), *(key+6), *(key+7),
-            HEAVY_HITTER_THRESHOLD);
-}
-
 int stats_loop(void *ptr) {
     PortPtr *ports = (PortPtr*)ptr;
     printf("Running stats function on lcore: %d\n", rte_lcore_id());
@@ -113,16 +95,8 @@ int stats_loop(void *ptr) {
 
         if (g_report) {
             g_report = 0;
-            uint32_t version = reporter_version(g_reporter);
-            char buf[255] = {0};
-            snprintf(buf, 255, "log-%04d.log", version);
-            reporter_swap(g_reporter);
-            reporter_save(g_reporter, buf, _rsave);
-            reporter_reset(g_reporter);
 
-            //count_array_cuckoo_reset(g_ca_cc_module);
-            //count_array_hashmap_reset(g_ca_hm_module);
-            count_array_hashmap_linear_reset(g_ca_hml_module);
+            expr_signal(g_exprs);
         }
     }
     return 0;
@@ -146,45 +120,26 @@ stats_ptr(PortPtr *ports) {
         for (i = 0; i < PORT_COUNT; ++i)
             if (ports[i])
                 print_stats(ports[i]);
-
-        printf("Num heavy-hitters: %u\n", g_reporter->offline_idx);
-        consumer_print_stats(g_consumer);
     }
 }
 
 void
 initialize(void) {
     g_console = console_create(1000);
-    g_reporter= reporter_init(1024, 8, 1);
-
-    g_ca_module = (ModulePtr)count_array_init(COUNT_ARRAY_SIZE);
-    g_ss_module = (ModulePtr)super_spreader_init(SUPER_SPREADER_SIZE);
-
-    g_ca_hm_module = (ModulePtr)count_array_hashmap_init(COUNT_ARRAY_SIZE, 2, 3, 1, g_reporter);
-    g_ca_hml_module = (ModulePtr)count_array_hashmap_linear_init(COUNT_ARRAY_SIZE, 2, 3, 1, g_reporter);
-    g_ca_cc_module = (ModulePtr)count_array_cuckoo_init(COUNT_ARRAY_SIZE, 2, 3, 1, g_reporter);
-    g_consumer = consumer_init();
+    boostrap_register_modules();
 }
 
 void
 cleanup(void){
-    count_array_delete(g_ca_module);
-    count_array_hashmap_delete(g_ca_hm_module);
-    count_array_hashmap_linear_delete(g_ca_hml_module);
-    count_array_cuckoo_delete(g_ca_cc_module);
-    reporter_free(g_reporter);
+    expr_cleanup(g_exprs);
 }
 
 static void
 init_modules(PortPtr port) {
-    //port_add_rx_module(port, (ModulePtr)g_ca_hm_module);
-    port_add_rx_module(port, (ModulePtr)g_ca_hml_module);
-    //port_add_rx_module(port, (ModulePtr)g_ca_cc_module);
-
-    //static int ring_id = 0;
-    //ModuleRingPtr ring = ring_init(ring_id++, 256, 16, port_socket_id(port));
-    //port_add_rx_module(port, (ModulePtr)ring);
-    //consumer_add_ring(g_consumer, ring_get_ring(ring));
+    printf("Initializing modules on core: %d.\n", rte_lcore_id());
+    expr_initialize(g_exprs, port);
+    printf("Finished initializing modules.\n");
+    //port_add_rx_module(port, (ModulePtr)g_ca_ccl_module);
 }
 
 static int
@@ -204,6 +159,7 @@ run_port_at(uint32_t port_id, uint32_t core_id) {
 int
 main(int argc, char **argv) {
     int ret = 0;
+    g_exprs = expr_parse("tests/01-hh-hashtable.yaml");
     ret = rte_eal_init(argc, argv);
 
     if (ret < 0)
@@ -219,8 +175,6 @@ main(int argc, char **argv) {
 
     if (run_port_at(0, 1) != 0) exit(-1);
 
-
-    //rte_eal_remote_launch(cons_loop, g_consumer, 11);
     rte_eal_remote_launch(stats_loop, ports, 3);
     rte_eal_mp_wait_lcore();
 

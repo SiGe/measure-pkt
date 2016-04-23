@@ -45,9 +45,13 @@ APP = l2fwd
 SRCS-y := \
 	src/dss/hashmap.c \
 	src/dss/hashmap_linear.c \
+	src/dss/hashmap_cuckoo.c \
+	src/bootstrap.c \
 	src/console.c \
+	src/experiment.c \
 	src/main.c \
 	src/memory.c \
+	src/module.c \
 	src/net.c \
 	src/pkt.c \
 	src/reporter.c \
@@ -57,12 +61,13 @@ SRCS-y := \
 	src/modules/ring.c \
 	src/modules/consumer.c \
 	src/modules/count_array_hashmap.c \
-	src/modules/count_array_cuckoo.c \
 	src/modules/count_array_hashmap_linear.c \
+	src/modules/count_array_cuckoo.c \
+	src/modules/count_array_cuckoo_local.c \
 	
 
 CFLAGS += -O3 -g
-LDFLAGS += -lpcap
+LDFLAGS += -lpcap -lyaml
 #CFLAGS += -O0 -g
 CFLAGS += $(WERROR_FLAGS)
 

@@ -26,6 +26,7 @@
 #define _COUNT_ARRAY_CUCKOO_H_
 
 #include "../common.h"
+#include "../experiment.h"
 #include "../module.h"
 #include "../net.h"
 #include "../reporter.h"
@@ -53,8 +54,7 @@ struct ModuleCountArrayCuckoo {
 
 typedef struct ModuleCountArrayCuckoo* ModuleCountArrayCuckooPtr;
 
-ModuleCountArrayCuckooPtr count_array_cuckoo_init(uint32_t, unsigned,
-        unsigned, unsigned, ReporterPtr);
+ModulePtr count_array_cuckoo_init(ModuleConfigPtr);
 
 void count_array_cuckoo_delete(ModulePtr);
 void count_array_cuckoo_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);

@@ -16,6 +16,7 @@ struct Reporter {
     unsigned version;
     unsigned idx;
     unsigned offline_idx;
+    char fname_format[128];
 
     uint8_t *active;
     uint8_t *offline;
@@ -24,14 +25,17 @@ struct Reporter {
     uint8_t *ptr2;
 };
 
-ReporterPtr reporter_init(unsigned, unsigned, unsigned);
+ReporterPtr reporter_init(unsigned, unsigned, unsigned, char const *fname_format);
 void reporter_add_entry(ReporterPtr, void const*);
 void reporter_swap(ReporterPtr); 
 void reporter_reset(ReporterPtr); 
+
 uint8_t *reporter_begin(ReporterPtr); /* Always iterate over the offline pointer */
 uint8_t *reporter_end(ReporterPtr);
 uint8_t *reporter_next(ReporterPtr, void *);
+
 unsigned reporter_version(ReporterPtr);
+void reporter_tick(ReporterPtr);
 void reporter_free(ReporterPtr);
 
 void reporter_save(ReporterPtr rep, const char *fname, 

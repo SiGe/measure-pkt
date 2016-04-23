@@ -49,8 +49,8 @@
 #define MAX_MODULE_NAME 32
 
 // Histogram specification
-#define HIST_SIZE 512
-#define HIST_BUCKET_SIZE  16
+#define HIST_SIZE 1024
+#define HIST_BUCKET_SIZE  8
 
 #define MAX_MODULES  4
 
@@ -58,7 +58,7 @@
 #define CONSUMER_MAX_RINGS 4
 
 // Module params
-#define COUNT_ARRAY_SIZE ((1<<17) - 1) // Size is 4 * 4 MB
+#define COUNT_ARRAY_SIZE ((1<<19) - 1) // Size is 4 * 4 MB
 #define SUPER_SPREADER_SIZE ((1<<20) - 1) // Size is 32 * 4 MB
 
 // Report threshold

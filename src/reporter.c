@@ -1,11 +1,13 @@
+#include <string.h>
+
 #include "rte_malloc.h"
 #include "rte_memcpy.h"
 
-#include "string.h"
+#include "common.h"
 
 #include "reporter.h"
 
-ReporterPtr reporter_init( unsigned size, unsigned rowsize, unsigned socket) {
+ReporterPtr reporter_init( unsigned size, unsigned rowsize, unsigned socket, char const *fname_format) {
     ReporterPtr reporter = rte_zmalloc_socket(
             0, sizeof(struct Reporter), 64, socket);
 
@@ -18,6 +20,7 @@ ReporterPtr reporter_init( unsigned size, unsigned rowsize, unsigned socket) {
     reporter->rowsize = rowsize;
     reporter->idx     = 0;
     reporter->version = 0;
+    strncpy(reporter->fname_format, fname_format, 128);
 
     return reporter;
 }
@@ -41,6 +44,27 @@ void reporter_swap(ReporterPtr rep) {
     }
 
     rep->version++;
+}
+
+static inline void
+_rsave(FILE *fp, void *data, unsigned unused) {
+    (void)(unused);
+    unsigned char *key = (unsigned char*)(data);
+    fprintf(fp, "%u.%u.%u.%u/%u.%u.%u.%u %u\n",
+            *(key+0), *(key+1), *(key+2), *(key+3),
+            *(key+4), *(key+5), *(key+6), *(key+7),
+            HEAVY_HITTER_THRESHOLD);
+}
+
+void reporter_tick(ReporterPtr ptr) {
+    uint32_t version = reporter_version(ptr);
+    char buf[255] = {0};
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+    snprintf(buf, 255, ptr->fname_format, version);
+#pragma GCC diagnostic pop
+    reporter_swap(ptr);
+    reporter_save(ptr, buf, _rsave);
+    reporter_reset(ptr);
 }
 
 uint8_t *reporter_begin(ReporterPtr rep) {
