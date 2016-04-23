@@ -25,13 +25,19 @@
 #ifndef _NET_H_
 #define _NET_H_
 
+struct CoreQueuePair{
+    /* queue_id is implicit from the index of CoreQueuePtr */
+    uint16_t core_id;
+};
+
 typedef struct Port* PortPtr;
 typedef struct PortStats* PortStatsPtr;
+
 typedef void (*LoopRxFuncPtr)(PortPtr, uint32_t, struct rte_mbuf**, uint32_t);
 typedef void (*LoopIdleFuncPtr)(PortPtr);
 
 /* Create a port object for port_id on core_id */
-PortPtr     port_create(uint32_t, uint32_t);
+PortPtr     port_create(uint32_t, struct CoreQueuePair *, uint16_t);
 
 /* Configure and start the port in DPDK mode */
 int         port_start(PortPtr);
@@ -54,12 +60,22 @@ void        port_loop(PortPtr, LoopRxFuncPtr, LoopIdleFuncPtr);
 uint32_t    port_id(PortPtr);
 
 /* Returns the core id that the port is running on  */
-uint32_t    port_core_id(PortPtr);
+uint32_t    port_queue_core_id(PortPtr, uint8_t);
+
+/* Returns the core id that the port is running on  */
+uint32_t    port_socket_id(PortPtr);
 
 /* Prints out the port MAC address */
 void        port_print_mac(PortPtr);
 
 /* Print port stats */
 void        port_print_stats(PortPtr);
+
+/* Add a new module to the port */
+void        port_add_rx_module(PortPtr, void *);
+
+/* Execute all the modules assigned to this port */
+void        port_exec_rx_modules(PortPtr, uint32_t, struct rte_mbuf **, uint32_t);
+void        port_exec_tx_modules(PortPtr, uint32_t, struct rte_mbuf **, uint32_t);
 
 #endif // _NET_H_

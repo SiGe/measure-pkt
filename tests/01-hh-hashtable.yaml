@@ -1,0 +1,20 @@
+Experiment:
+    name: HeavyHitterCuckooLocal
+    ports:
+        - port-id: 0
+          modules:
+              - name: HeavyHitter::CuckooLocal
+                size: 524288
+                keysize: 2
+                valsize: 3
+                socket: 1
+                file-prefix: cuckoo-%04d
+                reporter-size: 2048
+
+              - name: HeavyHitter::HashmapLinear
+                size: 524288
+                keysize: 2
+                valsize: 3
+                socket: 1
+                file-prefix: hashmap-%04d
+                reporter-size: 2048

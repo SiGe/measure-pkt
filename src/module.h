@@ -25,6 +25,8 @@
 #ifndef _MODULE_H_
 #define _MODULE_H_
 
+#include "common.h"
+#include "experiment.h"
 #include "net.h"
 
 typedef struct Module* ModulePtr;
@@ -36,5 +38,37 @@ struct Module {
 
     ModuleFunc execute;
 };
+
+typedef ModulePtr (*ModuleInit) (ModuleConfigPtr);
+typedef void (*ModuleDelete)    (ModulePtr);
+typedef void (*ModuleExecute)   (ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
+typedef void (*ModuleReset)     (ModulePtr);
+
+struct ModuleList {
+    char name[255];
+
+    ModuleInit    init;
+    ModuleDelete  del;
+    ModuleExecute execute;
+    ModuleReset   reset;
+
+    struct ModuleList *next;
+};
+
+extern struct ModuleList _all_modules;
+
+void _module_register(
+        char const* name, ModulePtr (*init) (ModuleConfigPtr),
+        void (*del)(ModulePtr),
+        void (*execute)(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t),
+        void (*reset)(ModulePtr));
+
+ModuleInit    module_init_get(char const* name);
+ModuleDelete  module_delete_get(char const* name);
+ModuleExecute module_execute_get(char const* name);
+ModuleReset   module_reset_get(char const* name);
+
+#define REGISTER_MODULE(name, functor) _module_register(name, functor##_init, \
+        functor##_delete, functor##_execute, functor##_reset);
 
 #endif // _MODULE_H_

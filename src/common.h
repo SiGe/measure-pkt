@@ -32,10 +32,10 @@
 #define PORT_PKTMBUF_POOL_CACHE_SIZE ((250))  
 
 #define MAX_NUM_SOCKETS 4    /* Total number of possible sockets in the system */
-#define RX_DESC_DEFAULT 2048 /* Mempool size for the RX queue */
+#define RX_DESC_DEFAULT 512  /* Mempool size for the RX queue */
 #define TX_DESC_DEFAULT 512  /* Mempool size for the TX queue */
 #define MAX_PKT_BURST   32   /* Maximum number of packets received in a burst */
-#define MAX_RX_BURST    64   /* The amount of packets to process at one time */
+#define MAX_RX_BURST    32   /* The amount of packets to process at one time */
 #define MAX_RX_WAIT     4    /* Number of RX wait cycles */
 #define MAX_QUEUES      4    /* Maximum number of queues */
 
@@ -45,6 +45,25 @@
 #include "rte_log.h"
 #define RTE_LOGTYPE_APP RTE_LOGTYPE_USER1
 
+// Length of the name of the module
 #define MAX_MODULE_NAME 32
+
+// Histogram specification
+#define HIST_SIZE 1024
+#define HIST_BUCKET_SIZE  8
+
+#define MAX_MODULES  4
+
+// Max number of rings that consumer can read off
+#define CONSUMER_MAX_RINGS 4
+
+// Module params
+#define COUNT_ARRAY_SIZE ((1<<19) - 1) // Size is 4 * 4 MB
+#define SUPER_SPREADER_SIZE ((1<<20) - 1) // Size is 32 * 4 MB
+
+// Report threshold
+#define REPORT_THRESHOLD 0x1fffff
+#define HEAVY_HITTER_THRESHOLD 2048
+
 
 #endif // _COMMON_H_

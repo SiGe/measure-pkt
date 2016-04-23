@@ -66,3 +66,4 @@ count_array_execute(
         table[hashes[i]]++;
     }
 }
+
