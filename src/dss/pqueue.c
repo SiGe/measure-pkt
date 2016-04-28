@@ -68,12 +68,17 @@ static inline unsigned pq_size(unsigned size) {
     return sizeof(struct PriorityQueue) + (size * sizeof(uintptr_t));
 }
 
+static inline uint32_t
+pq_hash_entries(unsigned size) {
+    return size * 16;
+}
+
 static inline void
 pq_create_hash(PriorityQueuePtr pq) {
     struct rte_hash_parameters params;
     char name[255];
-    snprintf(name, 255, "hash-%d", pq->size*8);
-    params.entries = pq->size * 8;
+    snprintf(name, 255, "hash-%d", pq_hash_entries(pq->size));
+    params.entries = pq_hash_entries(pq->size);
     params.key_len = pq->keysize * 4;
     params.socket_id = pq->socket;
     params.hash_func = rte_jhash;
@@ -96,7 +101,7 @@ PriorityQueuePtr pqueue_create(unsigned size, uint16_t keysize, uint16_t elsize,
     pq_create_hash(ptr);
 
     ptr->values = rte_zmalloc_socket(0, sizeof(uint32_t) * \
-            (ptr->elsize+1) * ptr->size * 8, 64, socket);
+            (ptr->elsize+1) * pq_hash_entries(ptr->size), 64, socket);
 
     ptr->fcomp   = func;
     ptr->last_index = 0;
@@ -107,7 +112,7 @@ PriorityQueuePtr pqueue_create(unsigned size, uint16_t keysize, uint16_t elsize,
 void pqueue_reset(PriorityQueuePtr pq) {
     memset(pq->table, 0, pq_size(pq->size));
     rte_hash_reset(pq->hashmap);
-    memset(pq->values, 0, pq->size * 8 * (pq->elsize+1) * 4);
+    memset(pq->values, 0, pq_hash_entries(pq->size) * (pq->elsize+1) * 4);
     pq->last_index = 0;
 }
 

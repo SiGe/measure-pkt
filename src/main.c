@@ -22,16 +22,9 @@
 #include "net.h"
 #include "pkt.h"
 #include "reporter.h"
+#include "tests/test.h"
 
-#include "modules/consumer.h"
-#include "modules/count_array.h"
-#include "modules/count_array_cuckoo.h"
-#include "modules/count_array_cuckoo_local.h"
-#include "modules/count_array_hashmap.h"
-#include "modules/count_array_hashmap_linear.h"
-#include "modules/ring.h"
-#include "modules/super_spreader.h"
-
+#include "dss/pqueue.h"
 #include "dss/hashmap_cuckoo.h"
 
 #define PORT_COUNT 2
@@ -67,10 +60,13 @@ rx_modules(PortPtr port,
         uint8_t const *pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
         pkt += 38;
         uint32_t pktid = *((uint32_t const*)(pkt));
+
         if (!(pktid & REPORT_THRESHOLD)) {
             port_set_tick(port);
         }
+
         rte_pktmbuf_free(pkts[i]);
+
     }
 }
 
@@ -91,12 +87,6 @@ int stats_loop(void *ptr) {
         stats_ptr(ports);
         expr_signal(g_exprs);
     }
-    return 0;
-}
-
-int cons_loop(void *ptr) {
-    ConsumerPtr cn = (ConsumerPtr)ptr;
-    consumer_loop(cn);
     return 0;
 }
 
@@ -131,7 +121,6 @@ init_modules(PortPtr port) {
     printf("Initializing modules on core: %d.\n", rte_lcore_id());
     expr_initialize(g_exprs, port);
     printf("Finished initializing modules.\n");
-    //port_add_rx_module(port, (ModulePtr)g_ca_ccl_module);
 }
 
 static int
@@ -158,6 +147,8 @@ main(int argc, char **argv) {
 
     argc -= ret;
     argv += ret;
+
+    if (!tests_run()) exit(EXIT_FAILURE);
 
     g_exprs = expr_parse(argv[1]);
 
