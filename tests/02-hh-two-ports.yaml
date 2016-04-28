@@ -13,7 +13,7 @@ Experiment:
 
         - port-id: 1
           modules:
-              - name: HeavyHitter::HashmapLinear
+              - name: HeavyHitter::Hashmap
                 size: 524288
                 keysize: 2
                 valsize: 3

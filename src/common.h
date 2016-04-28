@@ -34,8 +34,8 @@
 #define MAX_NUM_SOCKETS 4    /* Total number of possible sockets in the system */
 #define RX_DESC_DEFAULT 512  /* Mempool size for the RX queue */
 #define TX_DESC_DEFAULT 512  /* Mempool size for the TX queue */
-#define MAX_PKT_BURST   32   /* Maximum number of packets received in a burst */
-#define MAX_RX_BURST    32   /* The amount of packets to process at one time */
+#define MAX_PKT_BURST   64   /* Maximum number of packets received in a burst */
+#define MAX_RX_BURST    64   /* The amount of packets to process at one time */
 #define MAX_RX_WAIT     4    /* Number of RX wait cycles */
 #define MAX_QUEUES      4    /* Maximum number of queues */
 
@@ -49,8 +49,8 @@
 #define MAX_MODULE_NAME 32
 
 // Histogram specification
-#define HIST_SIZE 1024
-#define HIST_BUCKET_SIZE  8
+#define HIST_SIZE 2048
+#define HIST_BUCKET_SIZE  2
 
 #define MAX_MODULES  4
 

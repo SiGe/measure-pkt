@@ -33,3 +33,6 @@
 
 # Ignore builds
 build/*
+
+# Ignore results
+tests/*/results

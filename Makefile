@@ -46,6 +46,7 @@ SRCS-y := \
 	src/dss/hashmap.c \
 	src/dss/hashmap_linear.c \
 	src/dss/hashmap_cuckoo.c \
+	src/dss/pqueue.c \
 	src/bootstrap.c \
 	src/console.c \
 	src/experiment.c \
@@ -60,13 +61,16 @@ SRCS-y := \
 	src/modules/super_spreader.c \
 	src/modules/ring.c \
 	src/modules/consumer.c \
-	src/modules/count_array_hashmap.c \
-	src/modules/count_array_hashmap_linear.c \
 	src/modules/count_array_cuckoo.c \
 	src/modules/count_array_cuckoo_local.c \
+	src/modules/count_array_hashmap.c \
+	src/modules/count_array_hashmap_linear.c \
+	src/modules/count_array_pqueue.c \
+	src/tests/test.c \
 	
 
-CFLAGS += -O3 -g
+CFLAGS += -O3 -g# -march=native
+#CFLAGS += -fmodulo-sched -fmodulo-sched-allow-regmoves
 LDFLAGS += -lpcap -lyaml
 #CFLAGS += -O0 -g
 CFLAGS += $(WERROR_FLAGS)

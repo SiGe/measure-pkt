@@ -355,28 +355,33 @@ port_loop(PortPtr port, LoopRxFuncPtr rx_func, LoopIdleFuncPtr idle_func) {
             struct RxQueue *rx_queue = rx_queues[rxq];
             
             struct mbuf_rx_table *table = &rx_queue->table;
-            struct rte_mbuf **pkts = table->rx_bufs;
+            struct rte_mbuf **pkts = table->rx_bufs + table->rx_len;
 
             /* Get a burst of packets */
-            nb_rx = rte_eth_rx_burst(port_id, rx_queue->queue_id, pkts, burst_size);
+            nb_rx = rte_eth_rx_burst(port_id,
+                    rx_queue->queue_id,
+                    pkts, burst_size);
+            table->rx_len += nb_rx;
 
-            /* Run the network function and save the cycles */
+            /* Run the network function and count the cycles */
 
-            if (likely(nb_rx > 0)) {
+            if (table->rx_len >= MAX_RX_BURST/2) {
                 /* Time the function */
                 rx_diff = rte_get_tsc_cycles();
-                rx_func(port, rx_queue->queue_id, table->rx_bufs, nb_rx); 
+                rx_func(port, rx_queue->queue_id,
+                        table->rx_bufs, table->rx_len); 
                 rx_diff = rte_get_tsc_cycles() - rx_diff;
 
                 /* Find the bucket */
-                rx_bucket = rx_diff / (HIST_BUCKET_SIZE * nb_rx);
+                rx_bucket = rx_diff / (HIST_BUCKET_SIZE * table->rx_len);
                 rx_bucket = (rx_bucket >= HIST_SIZE) ? HIST_SIZE - 1 : rx_bucket;
 
                 /* Update the pkt_stats */
-                pkt_stats->rx_packets += nb_rx;
+                pkt_stats->rx_packets += table->rx_len;
                 pkt_stats->rx_time += rx_diff;
-                pkt_stats->rx_histogram[rx_bucket] += nb_rx;
+                pkt_stats->rx_histogram[rx_bucket] += table->rx_len;
                 pkt_stats->rx_loop_count += 1;
+                table->rx_len = 0;
             }
         }
 
@@ -559,4 +564,9 @@ port_set_tick(PortPtr port) {
 inline void
 port_clear_tick(PortPtr port) {
     port->ticked = 0;
+}
+
+inline int
+port_queue_length(PortPtr port, uint32_t queue) {
+    return rte_eth_rx_queue_count(port->port_id, queue);
 }

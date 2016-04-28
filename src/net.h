@@ -74,6 +74,9 @@ void        port_print_stats(PortPtr);
 /* Add a new module to the port */
 void        port_add_rx_module(PortPtr, void *);
 
+/* Returns the length of the queue */
+int         port_queue_length(PortPtr, uint32_t);
+
 /* Execute all the modules assigned to this port */
 void        port_exec_rx_modules(PortPtr, uint32_t, struct rte_mbuf **, uint32_t);
 void        port_exec_tx_modules(PortPtr, uint32_t, struct rte_mbuf **, uint32_t);
