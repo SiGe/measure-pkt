@@ -85,7 +85,7 @@ count_array_pqueue_execute(
     ModuleCountArrayPQueuePtr module = (ModuleCountArrayPQueuePtr)module_;
     uint16_t i = 0;
     uint64_t timer = rte_get_tsc_cycles();
-    uint16_t idx;
+    pqueue_index_t idx;
     uint16_t keysize = module->keysize;
 
     rte_spinlock_lock(&module->lock);
@@ -113,7 +113,7 @@ count_array_pqueue_execute(
 
 static void
 save_heavy_hitters(PriorityQueuePtr pq, ReporterPtr reporter) {
-    void *cell = 0; uint16_t idx = 0;
+    void *cell = 0; pqueue_index_t idx = 0;
     uint16_t tot = 0;
     while ((cell = pqueue_iterate(pq, &idx)) != 0) {
         uint32_t count = *(uint32_t*)cell;

@@ -33,7 +33,7 @@ static int test_pqueue(void) {
 
     for (i = 0; i < lc; ++i) {
         uint64_t key = last_key++;
-        uint16_t idx = 0;
+        pqueue_index_t idx = 0;
         PQE *data = (PQE*)pqueue_get_copy_key(pq, &key, &idx);
         memset(data, 0, sizeof(PQE));
         data->counter = rand() & 0xffff;
@@ -47,7 +47,7 @@ static int test_pqueue(void) {
         last_key = 0;
         for (i = 0; i < lc; ++i) {
             uint64_t key = rand() % 0xffff;
-            uint16_t idx = 0;
+            pqueue_index_t idx = 0;
             PQE *data = (PQE*)pqueue_get_copy_key(pq, &key, &idx);
             data->counter += rand() & 0xf;
             pqueue_heapify_index(pq, idx);
