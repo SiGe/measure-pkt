@@ -35,20 +35,21 @@ RunBenchmark() {
             mkdir -p $expDir
 
             echo "> Running: $name ($size)"
-            sed -E "s/(\\s+)size: ([0-9]+)/\\1size: $size/" $bashDir/$benchmark > $resultDir/tmp.yaml
+            sed -E "s/(\\s+)size: ([0-9]+)/\\1size: $size/" $benchmark > $resultDir/tmp.yaml
 
             # Run the measurement framework locally and on the remote server
             cd $buildDir && sudo ./build/l2fwd -- $resultDir/tmp.yaml >$logFile >&1 &
 
             echo "> Running: remote traffic."
             ssh omid@mm -- ~/measure-pkt-d1-to-d1/run.sh 100 27263000 >/dev/null 2>&1
+            sleep 5
             sudo killall l2fwd
             mv $buildDir/*log $expDir/
         done
     done
 }
 
-RunBenchmark "$(ls 01*yaml | grep -v 'pqueue')" "131072 262144 524288 1048576 2097152 4194304"
-RunBenchmark "$(ls 01*yaml | grep 'pqueue')" "4096 8192 16384 32768"
+RunBenchmark "$(ls $bashDir/01*yaml | grep -v 'pqueue')" "131072 262144 524288 1048576 2097152 4194304"
+RunBenchmark "$(ls $bashDir/01*yaml | grep 'pqueue')" "4096 8192 16384 32768"
 
 
