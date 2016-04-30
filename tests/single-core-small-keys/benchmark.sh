@@ -9,8 +9,10 @@ popd > /dev/null
 RunBenchmark() {
     benchmarkList=$1
     sizeList=$2
+    speed=$3
+    trafficDist=$4
 
-    resultDir=$bashDir/results
+    resultDir=$bashDir/results/$trafficDist
     mkdir -p $resultDir
 
     cd $resultDir && touch tmp.yaml
@@ -39,9 +41,10 @@ RunBenchmark() {
 
             # Run the measurement framework locally and on the remote server
             cd $buildDir && sudo ./build/l2fwd -- $resultDir/tmp.yaml >$logFile >&1 &
+            sleep 5
 
             echo "> Running: remote traffic."
-            ssh omid@mm -- ~/measure-pkt-d1-to-d1/run.sh 100 27263000 >/dev/null 2>&1
+            ssh omid@mm -- ~/measure-pkt-d1-to-d1/run.sh $trafficDist $speed 27263000 >/dev/null 2>&1
             sleep 5
             sudo killall l2fwd
             mv $buildDir/*log $expDir/
@@ -49,7 +52,11 @@ RunBenchmark() {
     done
 }
 
-RunBenchmark "$(ls $bashDir/01*yaml | grep -v 'pqueue')" "131072 262144 524288 1048576 2097152 4194304"
-RunBenchmark "$(ls $bashDir/01*yaml | grep 'pqueue')" "4096 8192 16384 32768"
+for dist in 0.75 1.1 1.25 1.5 1.75 def; do
+    RunBenchmark "$(ls $bashDir/01*yaml | grep -v pqueue | grep -v cuckoo | grep -v simple)" "131072 262144 524288 1048576 2097152 4194304 8388608" 100 $dist
+    RunBenchmark "$(ls $bashDir/01*yaml | grep 'simple')" "16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608" 100 $dist
+    RunBenchmark "$(ls $bashDir/01*yaml | grep 'cuckoo')" "131072 262144 524288 1048576 2097152 4194304" 100 $dist
+    RunBenchmark "$(ls $bashDir/01*yaml | grep 'pqueue')" "8192 16384 32768 65536 131072 262144" 300 $dist
+done
 
 

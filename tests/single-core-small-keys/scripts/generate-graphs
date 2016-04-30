@@ -1,0 +1,292 @@
+#!/usr/bin/env bash
+#
+# Usage:
+#   ./generate-graphs [results-folder]
+#
+
+###############################################################################
+# Strict Mode
+###############################################################################
+
+# Short form: set -u
+set -o nounset
+
+# Exit immediately if a pipeline returns non-zero.
+set -o errexit
+
+# Return value of a pipeline is the value of the last (rightmost) command to
+# exit with a non-zero status, or zero if all commands in the pipeline exit
+# successfully.
+set -o pipefail
+
+# Set IFS to just newline and tab at the start
+# Supress ShellCheck unused variable warning:
+# shellcheck disable=SC2034
+DEFAULT_IFS="${IFS}"
+SAFER_IFS=$'\n\t'
+IFS="${SAFER_IFS}"
+
+###############################################################################
+# Environment
+###############################################################################
+
+# $_ME
+#
+# Set to the program's basename.
+_ME=$(basename "${0}")
+pushd $(dirname "${0}") > /dev/null
+_BASHDIR=$(pwd)
+popd > /dev/null
+
+_RDIR=${1:-'../results'}
+_RESULTDIR=${_BASHDIR}/${_RDIR}
+
+###############################################################################
+# Help
+###############################################################################
+
+# _print_help()
+#
+# Usage:
+#   _print_help
+#
+# Print the program help information.
+_print_help() {
+  cat <<HEREDOC
+
+Generate the paper graphs in the results directory.
+
+Usage:
+  ${_ME} [results-dir]
+  ${_ME} -h | --help
+
+Options:
+  -h --help  Show this screen.
+HEREDOC
+}
+
+###############################################################################
+# Program Functions
+###############################################################################
+
+_getAccuracy() {
+    local folder=$1
+    local groundDir=${_RESULTDIR}/groundtruth/$2
+
+    truePositives=`for i in {0..12}; do
+        local next=$(echo "$i + 1" | bc)
+        local gt_f=$(printf %04d $i)
+        local ac_f=$(printf %04d $next)
+
+        if ls ${folder}/*${ac_f}.log 1>/dev/null 2>&1; then
+            printf ""
+        else
+            printf "FAILED...."
+            exit 1
+        fi
+        comm -12 <(cat $groundDir/${gt_f}.log| cut -d" " -f1 | sort) \
+            <(cat ${folder}/*${ac_f}.log | cut -d" " -f1 | sort)
+    done | wc -l`
+
+    local relevantElements=$(cat $groundDir/*log | wc -l)
+    local selectedElements=$(cat ${folder}/*00*log | wc -l)
+
+    local precision=$(echo "scale=3;100*$truePositives/$relevantElements" | bc)
+    local recall=$(echo "scale=3;100*$truePositives/$selectedElements" | bc)
+
+    echo -e "$precision\t$recall"
+}
+
+_getCycles() {
+    local folder=$1
+    local p50=$(tac $folder/app.log | egrep '50.0(\s*)Percentile:(\s*)([0-9]+)' \
+        | grep -v 4096 | awk '{print $4}' | head -n1)
+    local p95=$(tac $folder/app.log | egrep '95.0(\s*)Percentile:(\s*)([0-9]+)' \
+        | grep -v 4096 | awk '{print $4}' | head -n1)
+    local p99=$(tac $folder/app.log | egrep '99.0(\s*)Percentile:(\s*)([0-9]+)' \
+        | grep -v 4096 | awk '{print $4}' | head -n1)
+    local avg=$(tac $folder/app.log | egrep 'Average' | grep -v nan \
+        | awk '{print $5}' | head -n1)
+
+    echo -e "$avg\t$p50\t$p95\t$p99"
+}
+
+_generateCsvFiles() {
+    local resultsDir=${_RESULTDIR}
+    for trafficSize in $(ls -d $resultsDir/* | grep -v groundtruth | xargs -L1 basename); do
+        for exp in $(ls -d $resultsDir/$trafficSize/* | grep "01" | xargs -L1 basename); do
+            local name=$(_dsToTitle $exp)
+            for expSize in $(ls -d $resultsDir/$trafficSize/$exp/* | xargs -L1 basename); do
+                local expDir=$resultsDir/$trafficSize/$exp/$expSize;
+                if ls $expDir/*001*log 1>/dev/null 2>&1; then
+                    local time=$(_getCycles $expDir)
+                    local acc=$(_getAccuracy $expDir $trafficSize)
+                    local size=$(_dsToSize $exp $expSize)
+                    echo -e "$name\t$size\t$trafficSize\t$acc\t$time" | tee -a size-${size}.csv
+                fi
+            done | tee -a exp-${name}.csv
+        done | tee dist-${trafficSize}.csv
+    done
+}
+
+_dsToTitle() {
+    local field=$1
+    local ret=""
+    case $field in
+        *pqueue*)       ret="Heap";;
+        *cuckoo-local*) ret="Cuckoo";;
+        *cuckoo*)       ret="RTEHash";;
+        *simple*)       ret="Simple";;
+        *linear*)       ret="Linear";;
+        *) $field;;
+    esac
+    echo -e "$ret"
+}
+
+_dsToSize() {
+    local field=$1
+    local size=$2
+    local factor=${1:-1}
+    local keySize=2
+    local elSize=5
+    local heapFactor=16
+    local heapExtra=1
+    local ret=""
+    case $field in
+        *pqueue*)       ret=$(echo "4 * ($keySize + $elSize + $heapExtra) * $heapFactor * 2" | bc);;
+        *cuckoo-local*) ret=$(echo "4 * ($keySize + $elSize + 1) * 2" |  bc);;
+        *cuckoo*)       ret=$(echo "4 * ($keySize + $elSize + 1)" |  bc);;
+        *simple*)       ret=$(echo "4 * ($keySize + $elSize + 1)" |  bc);;
+        *linear*)       ret=$(echo "4 * ($keySize + $elSize + 1)" |  bc);;
+    esac
+    echo -e $(echo "($ret * $size)/${factor}" | bc)
+}
+
+_nameToLineType() {
+    local ret="1"
+    case $field in
+        *Heap*)       ret="1";;
+        *Cuckoo*) ret="2";;
+        *RTEHash*)       ret="3";;
+        *Simple*)       ret="4";;
+        *Linear*)       ret="5";;
+    esac
+    echo -e "$ret"
+}
+
+_drawGraphGroupByField() {
+    graphName="graph.gp"
+    dataFile=$1
+
+    yColumnToExtract="\$$2"
+    yColumnFactor="${3:-1}"
+
+    xColumnToExtract="\$$4"
+    xColumnFactor="${5:-1}"
+
+    xLabel="$6"
+    yLabel="$7"
+    outputFile="${8:-graphs/graph.pdf}"
+
+    xLogScale=${9:-false}
+
+    fields=$(cat $dataFile | awk '{print $1}' | sort | uniq)
+
+    cat graph.tpl > $graphName
+    cat <<EOF >>$graphName
+# Get the directory of the benchmark
+set xlabel "Size (MB)"
+set ylabel "$yLabel"
+set key outside horizontal bottom center 
+set mxtics 10
+# set yrange [10:100]
+EOF
+
+    if [ "$xLogScale" = true ]; then
+        cat <<EOF >>$graphName
+set logscale x
+EOF
+    fi
+
+    printf "plot " >>$graphName
+    for field in $fields; do
+        cat $dataFile | egrep "$field(\s+)" | sort -nk2 > ${field}-tmp.csv
+        local lt=$(_nameToLineType $field)
+        printf "'${field}-tmp.csv' using ($yColumnToExtract/($yColumnFactor)):($xColumnToExtract/($xColumnFactor))\
+            title '$field' w lp ls $lt," >>$graphName
+    done
+
+    gnuplot $graphName
+    rm *-tmp.csv
+    rm $graphName
+    mv graph.pdf $outputFile
+}
+
+_drawGraphGroupByName() {
+    _drawGraphGroupByField $1 '2' '1024*1024' $2 '1' $3 $4 $5 true
+}
+
+_drawGraphGroupByAccuracy() {
+    _drawGraphGroupByField $1 '4' '1024*1024' $2 '1' $3 $4 $5 true
+}
+
+_drawGraphPerExperiment() {
+    _drawGraphGroupByField $1 '2' '1' $2 '1' $3 $4 $5 true
+}
+
+_drawGraphFixSize() {
+    _drawGraphGroupByField $1 '3' '1' $2 '1' $3 $4 $5 false
+}
+
+_drawSizeGraphs() {
+    for i in $(ls dist*csv); do
+        name=$(echo $i | rev | cut -d'.' -f2- | rev)
+        _drawGraphGroupByName     $i 9 "Size (MB)" "99th percentile (cycles)" graphs/$name-cyc-size-99.pdf
+        _drawGraphGroupByName     $i 6 "Size (MB)" "Average (cycles)" graphs/$name-cyc-size-avg.pdf
+        _drawGraphGroupByName     $i 4 "Size (MB)" "Precision" graphs/$name-pre-size-avg.pdf
+        _drawGraphGroupByName     $i 5 "Size (MB)" "Recall" graphs/$name-rec-size-avg.pdf
+        _drawGraphGroupByAccuracy $i 9 "Size (MB)" "99th percentile (cycles)" graphs/$name-pre-cyc-avg.pdf
+    done
+}
+
+_drawExpGraphs() {
+    for i in $(ls exp*csv); do 
+        name=$(echo $i | rev | cut -d'.' -f2- | rev | cut -d'-' -f4-)
+        _drawGraphPerExperiment $i 9 "Size (MB)" "99th percentile (cycles)" graphs/$name-cyc-size-99.pdf
+    done
+}
+
+_drawFixGraphs() {
+    for i in $(ls size*csv); do 
+        name=$(echo $i | cut  -d'-' -f2 | cut -d'.' -f1)
+        _drawGraphFixSize $i 9 "Traffic dist. (zipf param)" "99th percentile (cycles)" graphs/$name-dist-cyc-99.pdf
+    done
+}
+
+_drawGraphs() {
+    _drawSizeGraphs
+    _drawExpGraphs
+    _drawFixGraphs
+}
+
+_run() {
+    _generateCsvFiles
+    _drawGraphs
+}
+
+
+###############################################################################
+# Main
+###############################################################################
+_main() {
+  # Avoid complex option parsing when only one program option is expected.
+  if [[ "${1:-}" =~ ^-h|--help$  ]]
+  then
+    _print_help
+  else
+    _run "${@}"
+  fi
+}
+
+# Call `_main` after everything has been defined.
+_main "${@:-}"
