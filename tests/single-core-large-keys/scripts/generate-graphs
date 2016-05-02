@@ -148,7 +148,7 @@ _dsToSize() {
     local size=$2
     local factor=${1:-1}
     local keySize=2
-    local elSize=5
+    local elSize=28
     local heapFactor=16
     local heapExtra=1
     local ret=""

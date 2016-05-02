@@ -46,17 +46,17 @@ RunBenchmark() {
             echo "> Running: remote traffic."
             ssh omid@mm -- ~/measure-pkt-d1-to-d1/run.sh $trafficDist $speed 27263000 >/dev/null 2>&1
             sleep 5
-            sudo killall l2fwd
+            sudo killall -s INT l2fwd
             mv $buildDir/*log $expDir/
         done
     done
 }
 
 for dist in 0.75 1.1 1.25 1.5 1.75 def; do
-    RunBenchmark "$(ls $bashDir/01*yaml | grep -v pqueue | grep -v cuckoo | grep -v simple)" "131072 262144 524288 1048576 2097152 4194304 8388608" 100 $dist
+    RunBenchmark "$(ls $bashDir/01*yaml | grep -v pqueue | grep -v cuckoo | grep -v simple)" "262144 524288 1048576 2097152 4194304 8388608" 100 $dist
     RunBenchmark "$(ls $bashDir/01*yaml | grep 'simple')" "16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608" 100 $dist
     RunBenchmark "$(ls $bashDir/01*yaml | grep 'cuckoo')" "131072 262144 524288 1048576 2097152 4194304" 100 $dist
-    RunBenchmark "$(ls $bashDir/01*yaml | grep 'pqueue')" "8192 16384 32768 65536 131072 262144" 300 $dist
+    RunBenchmark "$(ls $bashDir/01*yaml | grep 'pqueue')" "32768 65536 131072 262144" 300 $dist
 done
 
 

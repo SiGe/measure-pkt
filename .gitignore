@@ -36,3 +36,7 @@ build/*
 
 # Ignore results
 tests/*/results
+
+# Ignore graphs for now
+*.pdf
+*.csv
