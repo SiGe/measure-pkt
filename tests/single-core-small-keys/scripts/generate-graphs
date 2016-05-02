@@ -134,9 +134,11 @@ _dsToTitle() {
     local ret=""
     case $field in
         *pqueue*)       ret="Heap";;
+        *cuckoo-ptr*)   ret="CuckooPtr";;
         *cuckoo-local*) ret="Cuckoo";;
         *cuckoo*)       ret="RTEHash";;
         *simple*)       ret="Simple";;
+        *linear-ptr*)   ret="LinearPtr";;
         *linear*)       ret="Linear";;
         *) $field;;
     esac
@@ -154,9 +156,11 @@ _dsToSize() {
     local ret=""
     case $field in
         *pqueue*)       ret=$(echo "4 * ($keySize + $elSize + $heapExtra) * $heapFactor * 2" | bc);;
+        *cuckoo-ptr*)   ret=$(echo "4 * ($keySize + $elSize + 1) * 2" |  bc);;
         *cuckoo-local*) ret=$(echo "4 * ($keySize + $elSize + 1) * 2" |  bc);;
         *cuckoo*)       ret=$(echo "4 * ($keySize + $elSize + 1)" |  bc);;
         *simple*)       ret=$(echo "4 * ($keySize + $elSize + 1)" |  bc);;
+        *linear-ptr*)   ret=$(echo "4 * ($keySize + $elSize + 1)" |  bc);;
         *linear*)       ret=$(echo "4 * ($keySize + $elSize + 1)" |  bc);;
     esac
     echo -e $(echo "($ret * $size)/${factor}" | bc)
@@ -165,11 +169,13 @@ _dsToSize() {
 _nameToLineType() {
     local ret="1"
     case $field in
-        *Heap*)       ret="1";;
-        *Cuckoo*) ret="2";;
-        *RTEHash*)       ret="3";;
-        *Simple*)       ret="4";;
-        *Linear*)       ret="5";;
+        *CuckooPtr*)    ret="1";;
+        *Cuckoo*)       ret="2";;
+        *LinearPtr*)    ret="3";;
+        *Linear*)       ret="4";;
+        *Simple*)       ret="5";;
+        *Heap*)         ret="6";;
+        *RTEHash*)      ret="7";;
     esac
     echo -e "$ret"
 }
