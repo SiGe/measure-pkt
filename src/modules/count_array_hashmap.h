@@ -42,6 +42,8 @@ struct ModuleCountArrayHashmap {
     unsigned  elsize;
     unsigned  socket;
 
+    unsigned stats_search;
+
     ReporterPtr reporter;
     HashMapPtr hashmap;
 
@@ -56,5 +58,6 @@ ModulePtr count_array_hashmap_init(ModuleConfigPtr);
 void count_array_hashmap_delete(ModulePtr);
 void count_array_hashmap_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
 void count_array_hashmap_reset(ModulePtr);
+void count_array_hashmap_stats(ModulePtr, FILE *f);
 
 #endif

@@ -44,6 +44,8 @@ struct ModuleCountArrayPQueue {
     unsigned  elsize;
     unsigned  socket;
 
+    unsigned stats_search;
+
     ReporterPtr reporter;
     PriorityQueuePtr pqueue;
 
@@ -60,5 +62,6 @@ ModulePtr count_array_pqueue_init(ModuleConfigPtr);
 void count_array_pqueue_delete(ModulePtr);
 void count_array_pqueue_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
 void count_array_pqueue_reset(ModulePtr);
+void count_array_pqueue_stats(ModulePtr, FILE *);
 
 #endif //PQUEUE

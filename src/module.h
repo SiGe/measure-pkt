@@ -43,6 +43,7 @@ typedef ModulePtr (*ModuleInit) (ModuleConfigPtr);
 typedef void (*ModuleDelete)    (ModulePtr);
 typedef void (*ModuleExecute)   (ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
 typedef void (*ModuleReset)     (ModulePtr);
+typedef void (*ModuleStats)     (ModulePtr, FILE*);
 
 struct ModuleList {
     char name[255];
@@ -51,6 +52,7 @@ struct ModuleList {
     ModuleDelete  del;
     ModuleExecute execute;
     ModuleReset   reset;
+    ModuleStats   stats;
 
     struct ModuleList *next;
 };
@@ -61,14 +63,16 @@ void _module_register(
         char const* name, ModulePtr (*init) (ModuleConfigPtr),
         void (*del)(ModulePtr),
         void (*execute)(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t),
-        void (*reset)(ModulePtr));
+        void (*reset)(ModulePtr),
+        void (*stats)(ModulePtr, FILE*));
 
 ModuleInit    module_init_get(char const* name);
 ModuleDelete  module_delete_get(char const* name);
 ModuleExecute module_execute_get(char const* name);
 ModuleReset   module_reset_get(char const* name);
+ModuleStats   module_stats_get(char const* name);
 
 #define REGISTER_MODULE(name, functor) _module_register(name, functor##_init, \
-        functor##_delete, functor##_execute, functor##_reset);
+        functor##_delete, functor##_execute, functor##_reset, functor##_stats);
 
 #endif // _MODULE_H_

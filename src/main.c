@@ -1,4 +1,5 @@
 #include <inttypes.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -117,6 +118,15 @@ cleanup(void){
 }
 
 static void
+cleanup_signal(int handler) {
+    (void)(handler);
+    FILE *f = fopen("stats.log", "w+");
+    expr_stats_save(g_exprs, f);
+    fclose(f);
+    exit(0);
+}
+
+static void
 init_modules(PortPtr port) {
     printf("Initializing modules on core: %d.\n", rte_lcore_id());
     expr_initialize(g_exprs, port);
@@ -159,6 +169,7 @@ main(int argc, char **argv) {
 
     initialize();
     atexit(cleanup);
+    signal(SIGINT, cleanup_signal);
 
     if (run_port_at(0, 1) != 0) exit(-1);
     if (run_port_at(1, 3) != 0) exit(-1);

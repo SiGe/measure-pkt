@@ -63,8 +63,10 @@ SRCS-y := \
 	src/modules/consumer.c \
 	src/modules/count_array_cuckoo.c \
 	src/modules/count_array_cuckoo_local.c \
+	src/modules/count_array_cuckoo_local_ptr.c \
 	src/modules/count_array_hashmap.c \
 	src/modules/count_array_hashmap_linear.c \
+	src/modules/count_array_hashmap_linear_ptr.c \
 	src/modules/count_array_pqueue.c \
 	src/tests/test.c \
 	

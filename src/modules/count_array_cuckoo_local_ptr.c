@@ -15,9 +15,9 @@
 #include "../reporter.h"
 
 #include "../dss/hashmap_cuckoo.h"
-#include "count_array_cuckoo_local.h"
+#include "count_array_cuckoo_local_ptr.h"
 
-ModulePtr count_array_cuckoo_local_init(ModuleConfigPtr conf) {
+ModulePtr count_array_cuckoo_local_ptr_init(ModuleConfigPtr conf) {
     uint32_t size    = mc_uint32_get(conf, "size");
     uint32_t keysize = mc_uint32_get(conf, "keysize");
     uint32_t elsize  = mc_uint32_get(conf, "valsize");
@@ -30,26 +30,34 @@ ModulePtr count_array_cuckoo_local_init(ModuleConfigPtr conf) {
             keysize * 4, socket,
             mc_string_get(conf, "file-prefix"));
 
-    ModuleCountArrayCuckooLPtr module = rte_zmalloc_socket(0,
-            sizeof(struct ModuleCountArrayCuckooL), 64, socket); 
+    ModuleCountArrayCuckooLPPtr module = rte_zmalloc_socket(0,
+            sizeof(struct ModuleCountArrayCuckooLP), 64, socket); 
 
-    module->_m.execute = count_array_cuckoo_local_execute;
+    module->_m.execute = count_array_cuckoo_local_ptr_execute;
     module->size  = size;
     module->keysize = keysize;
     module->elsize = elsize;
     module->socket = socket;
     module->reporter = reporter;
+    module->index = 0;
 
-    module->hashmap_ptr1 = hashmap_cuckoo_create(size, keysize, elsize, socket);
-    module->hashmap_ptr2 = hashmap_cuckoo_create(size, keysize, elsize, socket);
+    module->hashmap_ptr1 = hashmap_cuckoo_create(size, keysize, sizeof(uintptr_t)/sizeof(uint32_t), socket);
+    module->hashmap_ptr2 = hashmap_cuckoo_create(size, keysize, sizeof(uintptr_t)/sizeof(uint32_t), socket);
 
     module->hashmap = module->hashmap_ptr1;
+    module->vals1 = rte_zmalloc_socket(0,
+            sizeof(uint32_t) * module->elsize * module->size, 64, socket);
+    module->vals2 = rte_zmalloc_socket(0,
+            sizeof(uint32_t) * module->elsize * module->size, 64, socket);
+
+    module->values = module->vals1;
+    module->index = 0;
 
     return (ModulePtr)module;
 }
 
-void count_array_cuckoo_local_delete(ModulePtr module_) {
-    ModuleCountArrayCuckooLPtr module = (ModuleCountArrayCuckooLPtr)module_;
+void count_array_cuckoo_local_ptr_delete(ModulePtr module_) {
+    ModuleCountArrayCuckooLPPtr module = (ModuleCountArrayCuckooLPPtr)module_;
 
     hashmap_cuckoo_delete(module->hashmap_ptr1);
     hashmap_cuckoo_delete(module->hashmap_ptr2);
@@ -62,14 +70,14 @@ void count_array_cuckoo_local_delete(ModulePtr module_) {
         (sizeof(struct ether_addr))))
 
 inline void
-count_array_cuckoo_local_execute(
+count_array_cuckoo_local_ptr_execute(
         ModulePtr module_,
         PortPtr port __attribute__((unused)),
         struct rte_mbuf ** __restrict__ pkts,
         uint32_t count) {
     (void)(port);
 
-    ModuleCountArrayCuckooLPtr module = (ModuleCountArrayCuckooLPtr)module_;
+    ModuleCountArrayCuckooLPPtr module = (ModuleCountArrayCuckooLPPtr)module_;
     uint16_t i = 0;
     uint64_t timer = rte_get_tsc_cycles(); (void)(timer);
     void *ptrs[MAX_PKT_BURST];
@@ -88,8 +96,13 @@ count_array_cuckoo_local_execute(
     /* Save and report if necessary */
     ReporterPtr reporter = module->reporter;
     for (i = 0; i < count; ++i) { 
-        void *ptr = ptrs[i];
-        uint32_t *bc = (uint32_t*)(ptr); (*bc)++;
+        uintptr_t *ptr = ptrs[i];
+        if (*ptr == 0) {
+            *ptr = (uintptr_t)(module->values + 4 * module->elsize * module->index);
+            module->index++;
+        }
+
+        uint32_t *bc = (uint32_t*)(*ptr); (*bc)++;
         uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
 
         if (*bc == HEAVY_HITTER_THRESHOLD) {
@@ -101,26 +114,31 @@ count_array_cuckoo_local_execute(
 }
 
 inline void
-count_array_cuckoo_local_reset(ModulePtr module_) {
-    ModuleCountArrayCuckooLPtr module = (ModuleCountArrayCuckooLPtr)module_;
+count_array_cuckoo_local_ptr_reset(ModulePtr module_) {
+    ModuleCountArrayCuckooLPPtr module = (ModuleCountArrayCuckooLPPtr)module_;
     HashMapCuckooPtr prev = module->hashmap;
+    uint8_t *prev_val = module->values;
     reporter_tick(module->reporter);
 
+    module->index = 0;
     if (module->hashmap == module->hashmap_ptr1) {
         module->hashmap = module->hashmap_ptr2;
+        module->values = module->vals2;
     } else {
         module->hashmap = module->hashmap_ptr1;
+        module->values = module->vals1;
     }
 
     module->stats_search += hashmap_cuckoo_num_searches(prev);
+    memset(prev_val, 0, sizeof(uint32_t)*module->elsize*module->size);
     hashmap_cuckoo_reset(prev);
 }
 
 inline void
-count_array_cuckoo_local_stats(ModulePtr module_, FILE *f) {
-    ModuleCountArrayCuckooLPtr module = (ModuleCountArrayCuckooLPtr)module_;
+count_array_cuckoo_local_ptr_stats(ModulePtr module_, FILE *f) {
+    ModuleCountArrayCuckooLPPtr module = (ModuleCountArrayCuckooLPPtr)module_;
     module->stats_search += hashmap_cuckoo_num_searches(module->hashmap);
-    fprintf(f, "HeavyHitter::Cuckoo::SearchLoad\t%u\n", module->stats_search);
+    fprintf(f, "HeavyHitter::CuckooPtr::SearchLoad\t%u\n", module->stats_search);
 }
 
 

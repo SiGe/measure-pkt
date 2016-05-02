@@ -14,9 +14,9 @@
 #include "../reporter.h"
 
 #include "../dss/hashmap_linear.h"
-#include "count_array_hashmap_linear.h"
+#include "count_array_hashmap_linear_ptr.h"
 
-ModulePtr count_array_hashmap_linear_init(ModuleConfigPtr conf) {
+ModulePtr count_array_hashmap_linear_ptr_init(ModuleConfigPtr conf) {
     uint32_t size    = mc_uint32_get(conf, "size");
     uint32_t keysize = mc_uint32_get(conf, "keysize");
     uint32_t elsize  = mc_uint32_get(conf, "valsize");
@@ -27,26 +27,36 @@ ModulePtr count_array_hashmap_linear_init(ModuleConfigPtr conf) {
             keysize * 4, socket,
             mc_string_get(conf, "file-prefix"));
 
-    ModuleCountArrayHashmapLinearPtr module = rte_zmalloc_socket(0,
-            sizeof(struct ModuleCountArrayHashmapLinear), 64, socket); 
+    ModuleCountArrayHashmapLinearPPtr module = rte_zmalloc_socket(0,
+            sizeof(struct ModuleCountArrayHashmapLinearPtr), 64, socket); 
 
-    module->_m.execute = count_array_hashmap_linear_execute;
+    module->_m.execute = count_array_hashmap_linear_ptr_execute;
     module->size  = size;
     module->keysize = keysize;
     module->elsize = elsize;
     module->socket = socket;
     module->reporter = reporter;
 
-    module->hashmap_linear_ptr1 = hashmap_linear_create(size, keysize, elsize, socket);
-    module->hashmap_linear_ptr2 = hashmap_linear_create(size, keysize, elsize, socket);
+    module->hashmap_linear_ptr1 = hashmap_linear_create(
+            size, keysize, sizeof(uintptr_t)/sizeof(uint32_t), socket);
+    module->hashmap_linear_ptr2 = hashmap_linear_create(
+            size, keysize, sizeof(uintptr_t)/sizeof(uint32_t), socket);
 
     module->hashmap_linear = module->hashmap_linear_ptr1;
+
+    module->vals1 = rte_zmalloc_socket(0,
+            sizeof(uint32_t) * elsize * size, 64, socket);
+    module->vals2 = rte_zmalloc_socket(0,
+            sizeof(uint32_t) * elsize * size, 64, socket);
+
+    module->index = 0;
+    module->values = module->vals1;
 
     return (ModulePtr)module;
 }
 
-void count_array_hashmap_linear_delete(ModulePtr module_) {
-    ModuleCountArrayHashmapLinearPtr module = (ModuleCountArrayHashmapLinearPtr)module_;
+void count_array_hashmap_linear_ptr_delete(ModulePtr module_) {
+    ModuleCountArrayHashmapLinearPPtr module = (ModuleCountArrayHashmapLinearPPtr)module_;
 
     hashmap_linear_delete(module->hashmap_linear_ptr1);
     hashmap_linear_delete(module->hashmap_linear_ptr2);
@@ -59,14 +69,14 @@ void count_array_hashmap_linear_delete(ModulePtr module_) {
         (sizeof(struct ether_addr))))
 
 inline void
-count_array_hashmap_linear_execute(
+count_array_hashmap_linear_ptr_execute(
         ModulePtr module_,
         PortPtr port __attribute__((unused)),
         struct rte_mbuf ** __restrict__ pkts,
         uint32_t count) {
     (void)(port);
 
-    ModuleCountArrayHashmapLinearPtr module = (ModuleCountArrayHashmapLinearPtr)module_;
+    ModuleCountArrayHashmapLinearPPtr module = (ModuleCountArrayHashmapLinearPPtr)module_;
     uint16_t i = 0;
     uint64_t timer = rte_get_tsc_cycles(); (void)(timer);
     void *ptrs[MAX_PKT_BURST];
@@ -85,8 +95,13 @@ count_array_hashmap_linear_execute(
     /* Save and report if necessary */
     ReporterPtr reporter = module->reporter;
     for (i = 0; i < count; ++i) { 
-        void *ptr = ptrs[i];
-        uint32_t *bc = (uint32_t*)(ptr); (*bc)++;
+        uintptr_t *ptr = ptrs[i];
+        if (*ptr == 0) {
+            *ptr = (uintptr_t)(module->values + 4 * module->elsize * module->index);
+            module->index++;
+        }
+
+        uint32_t *bc = (uint32_t*)(*ptr); (*bc)++;
         uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
 
         if (*bc == HEAVY_HITTER_THRESHOLD) {
@@ -97,24 +112,30 @@ count_array_hashmap_linear_execute(
 }
 
 inline void
-count_array_hashmap_linear_reset(ModulePtr module_) {
-    ModuleCountArrayHashmapLinearPtr module = (ModuleCountArrayHashmapLinearPtr)module_;
+count_array_hashmap_linear_ptr_reset(ModulePtr module_) {
+    ModuleCountArrayHashmapLinearPPtr module = (ModuleCountArrayHashmapLinearPPtr)module_;
     HashMapLinearPtr prev = module->hashmap_linear;
+    uint8_t *prev_val = module->values;
     reporter_tick(module->reporter);
 
+    module->index = 0;
     if (module->hashmap_linear == module->hashmap_linear_ptr1) {
         module->hashmap_linear = module->hashmap_linear_ptr2;
+        module->values = module->vals2;
     } else {
         module->hashmap_linear = module->hashmap_linear_ptr1;
+        module->values = module->vals1;
     }
 
     module->stats_search += hashmap_linear_num_searches(prev);
+    memset(prev_val, 0, module->elsize * sizeof(uint32_t) * module->size);
     hashmap_linear_reset(prev);
+
 }
 
 void
-count_array_hashmap_linear_stats(ModulePtr module_, FILE *f) {
-    ModuleCountArrayHashmapLinearPtr module = (ModuleCountArrayHashmapLinearPtr)module_;
+count_array_hashmap_linear_ptr_stats(ModulePtr module_, FILE *f) {
+    ModuleCountArrayHashmapLinearPPtr module = (ModuleCountArrayHashmapLinearPPtr)module_;
     module->stats_search += hashmap_linear_num_searches(module->hashmap_linear);
     fprintf(f, "HeavyHitter::Linear::SearchLoad\t%u\n", module->stats_search);
 }

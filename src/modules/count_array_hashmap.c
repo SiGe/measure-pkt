@@ -70,9 +70,10 @@ count_array_hashmap_execute(
 
     ModuleCountArrayHashmapPtr module = (ModuleCountArrayHashmapPtr)module_;
     uint16_t i = 0;
-    uint64_t timer = rte_get_tsc_cycles();
+    uint64_t timer = rte_get_tsc_cycles(); (void)(timer);
     void *ptrs[MAX_PKT_BURST];
     HashMapPtr hashmap = module->hashmap;
+    unsigned elsize = module->elsize;
 
     /* Prefetch hashmap entries */
     for (i = 0; i < count; ++i) {
@@ -88,14 +89,13 @@ count_array_hashmap_execute(
     for (i = 0; i < count; ++i) { 
         void *ptr = ptrs[i];
         uint32_t *bc = (uint32_t*)(ptr); (*bc)++;
+        uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
 
         if (*bc == HEAVY_HITTER_THRESHOLD) {
-            uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
             reporter_add_entry(reporter, pkt+26);
         }
 
-        uint64_t *time = (uint64_t*)(bc + 1);
-        *time = timer;
+        rte_memcpy(bc+1, pkt, (elsize-1)*4);
     }
 }
 
@@ -111,5 +111,14 @@ count_array_hashmap_reset(ModulePtr module_) {
         module->hashmap = module->hashmap_ptr1;
     }
 
+    module->stats_search += hashmap_num_searches(prev);
     hashmap_reset(prev);
 }
+
+inline void
+count_array_hashmap_stats(ModulePtr module_, FILE *f) {
+    ModuleCountArrayHashmapPtr module = (ModuleCountArrayHashmapPtr)module_;
+    module->stats_search += hashmap_num_searches(module->hashmap);
+    fprintf(f, "HeavyHitter::Simple::SearchLoad\t%u\n", module->stats_search);
+}
+

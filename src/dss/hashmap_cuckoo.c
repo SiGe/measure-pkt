@@ -18,6 +18,8 @@ struct HashMapCuckoo {
     uint16_t keysize;
     uint16_t elsize;
 
+    uint32_t stats_search;
+
     uint8_t *table;
 
     uint8_t *tblpri;
@@ -42,6 +44,7 @@ hashmap_cuckoo_total_size(HashMapCuckooPtr ptr) {
 inline void
 hashmap_cuckoo_reset(HashMapCuckooPtr ptr) {
     ptr->count = 0;
+    ptr->stats_search = 0;
 
     memset(ptr->table, 0, hashmap_cuckoo_total_size(ptr));
     memset(ptr->scratch_1, 0, ptr->rowsize);
@@ -141,10 +144,12 @@ inline static void *find_or_insert_key(
     uint8_t *keypos_2 = &ptr->tblsec[hash_offset(ptr, hash_2)];
     rte_prefetch0(keypos_2);
     //printf("Trying (Sec): "); print_line(keypos_2);
-
+    //
+    ptr->stats_search++;
     if (memcmp(keypos, key, ptr->keysize * 4) == 0)
         return keypos;
 
+    ptr->stats_search++;
     if (memcmp(keypos_2, key, ptr->keysize * 4) == 0)
         return keypos_2;
 
@@ -157,13 +162,10 @@ inline static void *find_or_insert_key(
 
     do {
         rte_memcpy(ptr->scratch_2, keypos, ptr->rowsize*4);
-        //printf("Copying: "); print_line(ptr->scratch_1);
-        //printf("     To: "); print_line(keypos);
         rte_memcpy(keypos, ptr->scratch_1, ptr->rowsize*4);
         if (memcmp(keypos, key, ptr->keysize) == 0) ret = keypos;
-        //printf("    End: "); print_line(keypos);
+        ptr->stats_search++;
         if (*((uint32_t*)(ptr->scratch_2)) == 0) {
-        //    printf("Returning: "); print_line(ret);
             return ret;
         }
 
@@ -171,23 +173,17 @@ inline static void *find_or_insert_key(
         hash = (*((uint32_t*)(ptr->scratch_2 + 4* ptr->keysize)));
         hash = hash_sec(hash);
         keypos = &ptr->tblsec[hash_offset(ptr, hash)];
-        //printf("Table second position: %p, %u, %u\n", keypos, hash_offset(ptr, hash), hash);
 
         rte_memcpy(ptr->scratch_1, keypos, ptr->rowsize*4);
-        //printf("Copying: "); print_line(ptr->scratch_2);
-        //printf("     To: "); print_line(keypos);
         rte_memcpy(keypos, ptr->scratch_2, ptr->rowsize*4);
         if (memcmp(keypos, key, ptr->keysize) == 0) ret = keypos;
-        //printf("    End: "); print_line(keypos);
+        ptr->stats_search++;
         if (*((uint32_t*)(ptr->scratch_1)) == 0) {
-        //  printf("Returning: "); print_line(ret);
             return ret;
         }
 
         hash = (*((uint32_t*)(ptr->scratch_1 + 4* ptr->keysize)));
         keypos = &ptr->tblpri[hash_offset(ptr, hash)];
-        //printf("Table first position: %p, %u, %u\n", keypos, hash_offset(ptr, hash), hash);
-        //printf("\n");
         i++;
     }while (i < HASHMAP_CUCKOO_MAX_TRIES);
 
@@ -248,4 +244,9 @@ hashmap_cuckoo_size(HashMapCuckooPtr ptr) {
 inline uint32_t
 hashmap_cuckoo_count(HashMapCuckooPtr ptr) {
     return ptr->count;
+}
+
+inline uint32_t 
+hashmap_cuckoo_num_searches(HashMapCuckooPtr ptr) {
+    return ptr->stats_search;
 }

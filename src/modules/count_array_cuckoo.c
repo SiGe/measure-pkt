@@ -106,6 +106,7 @@ count_array_cuckoo_execute(
     ModuleCountArrayCuckooPtr module = (ModuleCountArrayCuckooPtr)module_;
     uint16_t i = 0;
     uint64_t timer = rte_get_tsc_cycles();
+    (void)(timer);
     void *ptrs[MAX_PKT_BURST];
     struct rte_hash *hashmap = module->hashmap;
     uint8_t *end = module->counters;
@@ -130,14 +131,12 @@ count_array_cuckoo_execute(
     for (i = 0; i < count; ++i) { 
         void *ptr = ptrs[i];
         uint32_t *bc = (uint32_t*)(ptr); (*bc)++;
-
+        uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
         if (*bc == HEAVY_HITTER_THRESHOLD) {
-            uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
             reporter_add_entry(reporter, pkt+26);
         }
 
-        uint64_t *time = (uint64_t*)(bc + 1);
-        *time = timer;
+        rte_memcpy(bc+1, pkt, (elsize-1)*4);
     }
 }
 
@@ -160,3 +159,11 @@ count_array_cuckoo_reset(ModulePtr module_) {
     rte_hash_reset(key_tmp);
     memset(val_tmp, 0, val_space_size(module));
 }
+
+inline void
+count_array_cuckoo_stats(ModulePtr module_, FILE *f) {
+    ModuleCountArrayCuckooPtr module = (ModuleCountArrayCuckooPtr)module_;
+    (void)(module);
+    fprintf(f, "HeavyHitter::RTEHash::SearchLoad\t0\n");
+}
+

@@ -12,14 +12,16 @@ struct HashMapLinear {
     uint16_t rowsize;
     uint16_t keysize;
     uint16_t elsize;
-    uint32_t *eot;
+    uint32_t stats_search;
 
+    uint32_t *eot;
     uint32_t table[];
 };
 
 inline void
 hashmap_linear_reset(HashMapLinearPtr ptr) {
     ptr->count = 0;
+    ptr->stats_search = 0;
     memset(ptr->table, 0, ptr->size * (ptr->elsize + ptr->keysize) * sizeof(uint32_t));
 }
 
@@ -40,6 +42,7 @@ hashmap_linear_create(uint32_t size, uint16_t keysize,
     ptr->keysize = keysize;
     ptr->rowsize = ptr->elsize + ptr->keysize;
     ptr->eot = ptr->table + (ptr->rowsize * ptr->size);
+    ptr->stats_search = 0;
 
     return ptr;
 }
@@ -47,10 +50,25 @@ hashmap_linear_create(uint32_t size, uint16_t keysize,
 inline static void *
 find_key(HashMapLinearPtr ptr, void const *key, void *ret) {
     uint32_t *init = (uint32_t*)ret;
+    ptr->stats_search++;
     while (1) {
         if (*init == 0) return init;
-        if (memcmp(init, key, ptr->keysize) == 0) return init;
+        if (memcmp(init, key, ptr->keysize * 4) == 0) return init;
         init = init + ptr->rowsize;
+        ptr->stats_search++;
+        if (init > ptr->eot) init = (uint32_t *)ptr->table;
+    }
+}
+
+inline static void *
+find_and_copy_key(HashMapLinearPtr ptr, void const *key, void *ret) {
+    uint32_t *init = (uint32_t*)ret;
+    ptr->stats_search++;
+    while (1) {
+        if (*init == 0) { rte_memcpy(init, key, ptr->keysize * 4); return init; };
+        if (memcmp(init, key, ptr->keysize * 4) == 0) return init;
+        init = init + ptr->rowsize;
+        ptr->stats_search++;
         if (init > ptr->eot) init = (uint32_t *)ptr->table;
     }
 }
@@ -62,8 +80,7 @@ hashmap_linear_get_copy_key(HashMapLinearPtr ptr, void const *key) {
     uint32_t *ret = (((uint32_t*)ptr->table) + /* Base addr */
             (hash & ptr->size) * (ptr->rowsize)); /* Index */
     ptr->count++;
-    ret = find_key(ptr, key, ret);
-    rte_memcpy(ret, key, ptr->keysize);
+    ret = find_and_copy_key(ptr, key, ret);
     return (ret + ptr->keysize);
 
 }
@@ -116,4 +133,9 @@ hashmap_linear_size(HashMapLinearPtr ptr) {
 inline uint32_t
 hashmap_linear_count(HashMapLinearPtr ptr) {
     return ptr->count;
+}
+
+inline uint32_t
+hashmap_linear_num_searches(HashMapLinearPtr ptr) {
+    return ptr->stats_search;
 }

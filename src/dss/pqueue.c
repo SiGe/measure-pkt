@@ -44,6 +44,7 @@ struct PriorityQueue {
     uint16_t elsize;
     pqueue_index_t last_index;
     uint8_t  lock;
+    uint32_t stats_search;
 
     //HashMapCuckooPtr hashmap;
     struct rte_hash  *hashmap;
@@ -120,6 +121,7 @@ void pqueue_reset(PriorityQueuePtr pq) {
     memset(pq->table, 0, pq_size(pq->size));
     rte_hash_reset(pq->hashmap);
     memset(pq->values, 0, pq_hash_entries(pq->size) * (pq->elsize+pqn_size) * 4);
+    pq->stats_search = 0;
     pq->last_index = 0;
 }
 
@@ -211,6 +213,7 @@ void pqueue_swim(PriorityQueuePtr pq, pqueue_index_t idx) {
         pqueue_index_t pidx = pq_parent(idx);
         uint32_t *cur = (uint32_t*)pqueue_get_heap(pq, idx);
         uint32_t *prt = (uint32_t*)pqueue_get_heap(pq, pidx);
+        pq->stats_search++;
 
         int comp = pq->fcomp(cur + pqn_size, prt + pqn_size);
         if (comp <= 0) return;
@@ -229,6 +232,7 @@ void pqueue_sift(PriorityQueuePtr pq, pqueue_index_t idx) {
     while (idx < last_index) {
         pqueue_index_t lidx = pq_left(idx);
         pqueue_index_t ridx = pq_right(idx);
+        pq->stats_search++;
 
         if (lidx >= last_index) return;
 
@@ -340,4 +344,9 @@ void pqueue_assert_correctness(PriorityQueuePtr pq) {
         assert(*lft >= *cur);
         assert(*rgt >= *cur);
     }
+}
+
+uint32_t
+pqueue_num_searches(PriorityQueuePtr ptr) {
+    return ptr->stats_search;
 }

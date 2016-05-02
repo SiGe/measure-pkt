@@ -20,5 +20,6 @@ void *pqueue_peak(PriorityQueuePtr);
 void pqueue_print(PriorityQueuePtr pq);
 void *pqueue_iterate(PriorityQueuePtr pq, pqueue_index_t *);
 void pqueue_assert_correctness(PriorityQueuePtr pq);
+uint32_t pqueue_num_searches(PriorityQueuePtr pq);
 
 #endif

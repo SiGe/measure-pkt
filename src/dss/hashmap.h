@@ -45,5 +45,6 @@ inline void *hashmap_next(HashMapPtr, void *);
 uint32_t hashmap_size(HashMapPtr);
 uint32_t hashmap_count(HashMapPtr);
 inline void hashmap_reset(HashMapPtr);
+uint32_t hashmap_num_searches(HashMapPtr);
 
 #endif // _HASHMAP_H_

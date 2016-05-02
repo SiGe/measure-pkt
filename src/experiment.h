@@ -36,6 +36,7 @@ ExprsPtr expr_parse(const char *fname);
 void expr_initialize(ExprsPtr, PortPtr );
 void expr_cleanup(ExprsPtr);
 void expr_signal(ExprsPtr);
+void expr_stats_save(ExprsPtr, FILE *);
 
 uint32_t    mc_uint32_get  (ModuleConfigPtr, char const *);
 unsigned    mc_unsigned_get(ModuleConfigPtr, char const *);

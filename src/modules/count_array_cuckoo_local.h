@@ -42,6 +42,8 @@ struct ModuleCountArrayCuckooL {
     unsigned  elsize;
     unsigned  socket;
 
+    uint32_t stats_search;
+
     ReporterPtr reporter;
     HashMapCuckooPtr hashmap;
 
@@ -55,5 +57,6 @@ ModulePtr count_array_cuckoo_local_init(ModuleConfigPtr params);
 void count_array_cuckoo_local_delete(ModulePtr);
 void count_array_cuckoo_local_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
 void count_array_cuckoo_local_reset(ModulePtr);
+void count_array_cuckoo_local_stats(ModulePtr, FILE*);
 
 #endif

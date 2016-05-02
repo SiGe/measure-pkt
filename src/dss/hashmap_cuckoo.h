@@ -46,5 +46,7 @@ uint32_t hashmap_cuckoo_size(HashMapCuckooPtr);
 uint32_t hashmap_cuckoo_count(HashMapCuckooPtr);
 inline void hashmap_cuckoo_reset(HashMapCuckooPtr);
 
+uint32_t hashmap_cuckoo_num_searches(HashMapCuckooPtr);
+
 #endif // _HASHMAP_CUCKOO_H_
 

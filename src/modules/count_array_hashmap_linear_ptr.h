@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#ifndef _COUNT_ARRAY_HASHMAP_LINEAR_H_
-#define _COUNT_ARRAY_HASHMAP_LINEAR_H_
+#ifndef _COUNT_ARRAY_HASHMAP_LINEAR_PTR_H_
+#define _COUNT_ARRAY_HASHMAP_LINEAR_PTR_H_
 
 #include "../common.h"
 #include "../experiment.h"
@@ -34,7 +34,7 @@
 #include "../dss/hashmap_linear.h"
 
 typedef uint32_t Counter;
-struct ModuleCountArrayHashmapLinear {
+struct ModuleCountArrayHashmapLinearPtr {
     struct Module _m;
 
     uint32_t  size;
@@ -49,15 +49,22 @@ struct ModuleCountArrayHashmapLinear {
 
     HashMapLinearPtr hashmap_linear_ptr1;
     HashMapLinearPtr hashmap_linear_ptr2;
+
+    uint8_t *values;
+
+    uint8_t *vals1;
+    uint8_t *vals2;
+
+    uint32_t index;
 };
 
-typedef struct ModuleCountArrayHashmapLinear* ModuleCountArrayHashmapLinearPtr;
+typedef struct ModuleCountArrayHashmapLinearPtr* ModuleCountArrayHashmapLinearPPtr;
 
-ModulePtr count_array_hashmap_linear_init(ModuleConfigPtr);
+ModulePtr count_array_hashmap_linear_ptr_init(ModuleConfigPtr);
 
-void count_array_hashmap_linear_delete(ModulePtr);
-void count_array_hashmap_linear_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
-void count_array_hashmap_linear_reset(ModulePtr);
-void count_array_hashmap_linear_stats(ModulePtr, FILE *);
+void count_array_hashmap_linear_ptr_delete(ModulePtr);
+void count_array_hashmap_linear_ptr_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
+void count_array_hashmap_linear_ptr_reset(ModulePtr);
+void count_array_hashmap_linear_ptr_stats(ModulePtr, FILE *);
 
 #endif

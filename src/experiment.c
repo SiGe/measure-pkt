@@ -286,7 +286,6 @@ void expr_initialize(ExprsPtr exprs, PortPtr port) {
                 // Create the modules
                 cfg->module = module_init_get(cfg->name)(cfg);
 
-
                 // Only support RX modules for now
                 port_add_rx_module(port, cfg->module);
             }
@@ -304,6 +303,19 @@ void expr_cleanup(ExprsPtr exprs) {
             struct ExpModuleConfig *cfg = pm->configs[j];
 
             if (cfg->module) module_delete_get(cfg->name)(cfg->module);
+        }
+    }
+}
+
+void expr_stats_save(ExprsPtr exprs, FILE *f) {
+    struct Experiment *expr = exprs->exprs[0];
+    unsigned i = 0;
+    for (i = 0; i < expr->nport_modules; ++i) {
+        struct ExpPortModules *pm = expr->port_modules[i];
+        unsigned j = 0;
+        for (j = 0; j < pm->nconfigs; ++j) {
+            struct ExpModuleConfig *cfg = pm->configs[j];
+            if (cfg->module) module_stats_get(cfg->name)(cfg->module, f);
         }
     }
 }

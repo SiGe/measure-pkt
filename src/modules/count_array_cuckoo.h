@@ -58,7 +58,7 @@ ModulePtr count_array_cuckoo_init(ModuleConfigPtr);
 
 void count_array_cuckoo_delete(ModulePtr);
 void count_array_cuckoo_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
-
 void count_array_cuckoo_reset(ModulePtr);
+void count_array_cuckoo_stats(ModulePtr, FILE *f);
 
 #endif

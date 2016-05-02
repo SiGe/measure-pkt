@@ -45,5 +45,6 @@ inline void *hashmap_linear_next(HashMapLinearPtr, void *);
 uint32_t hashmap_linear_size(HashMapLinearPtr);
 uint32_t hashmap_linear_count(HashMapLinearPtr);
 inline void hashmap_linear_reset(HashMapLinearPtr);
+inline uint32_t hashmap_linear_num_searches(HashMapLinearPtr);
 
 #endif // _HASHMAP_LINEAR_H_

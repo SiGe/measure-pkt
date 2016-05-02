@@ -84,9 +84,10 @@ count_array_pqueue_execute(
 
     ModuleCountArrayPQueuePtr module = (ModuleCountArrayPQueuePtr)module_;
     uint16_t i = 0;
-    uint64_t timer = rte_get_tsc_cycles();
+    uint64_t timer = rte_get_tsc_cycles(); (void)(timer);
     pqueue_index_t idx;
     uint16_t keysize = module->keysize;
+    unsigned elsize  = module->elsize;
 
     rte_spinlock_lock(&module->lock);
 
@@ -98,14 +99,12 @@ count_array_pqueue_execute(
         /* Layout of each cell in the PQueue is:
          * 0 : [count]
          * 4 : [ key ]: [src/dst ip]
-         * 12: [value]: [time] 
-         * 20: [<eof>]
+         * 12: [value]: [pkt-data until elsize is satisfied]
          */
         uint32_t *bc = (uint32_t*)(ptr); (*bc)++;
         rte_memcpy(bc + 1, pkt+26, sizeof(uint32_t) * keysize);
         pqueue_heapify_index(module->pqueue, idx);
-        uint64_t *time = (uint64_t*)(bc + keysize + 1);
-        *time = timer;
+        rte_memcpy((bc + keysize + 1), pkt, (elsize-1)*4);
     }
 
     rte_spinlock_unlock(&module->lock);
@@ -141,6 +140,14 @@ count_array_pqueue_reset(ModulePtr module_) {
     save_heavy_hitters(prev, module->reporter);
 
     rte_spinlock_lock(&module->lock);
+    module->stats_search += pqueue_num_searches(prev);
     pqueue_reset(prev);
     rte_spinlock_unlock(&module->lock);
+}
+
+inline void
+count_array_pqueue_stats(ModulePtr module_, FILE *f) {
+    ModuleCountArrayPQueuePtr module = (ModuleCountArrayPQueuePtr)module_;
+    module->stats_search += pqueue_num_searches(module->pqueue);
+    fprintf(f, "HeavyHitter::PQueue::SearchLoad\t%u\n", module->stats_search);
 }

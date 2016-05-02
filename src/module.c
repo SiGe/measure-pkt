@@ -8,13 +8,15 @@ void _module_register(
         ModulePtr (*init) (ModuleConfigPtr),
         void (*del)(ModulePtr),
         void (*execute)(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t),
-        void (*reset)(ModulePtr)) {
+        void (*reset)(ModulePtr),
+        void (*stats)(ModulePtr, FILE*)) {
     struct ModuleList *lst = malloc(sizeof(struct ModuleList));
     lst->next = _all_modules.next;
     lst->init = init;
     lst->del  = del;
     lst->execute = execute;
     lst->reset = reset;
+    lst->stats = stats;
     strncpy(lst->name, name, 255);
     _all_modules.next = lst;
 }
@@ -47,4 +49,8 @@ ModuleExecute module_execute_get(char const* name) {
 
 ModuleReset module_reset_get(char const* name) {
     return module_get(name)->reset;
+}
+
+ModuleStats module_stats_get(char const* name) {
+    return module_get(name)->stats;
 }
