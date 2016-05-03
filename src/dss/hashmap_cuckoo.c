@@ -3,6 +3,7 @@
 #include "../common.h"
 #include "../vendor/murmur3.h"
 
+#include "rte_atomic.h"
 #include "rte_malloc.h"
 #include "rte_memcpy.h"
 #include "rte_memory.h"
@@ -18,7 +19,7 @@ struct HashMapCuckoo {
     uint16_t keysize;
     uint16_t elsize;
 
-    uint32_t stats_search;
+    rte_atomic32_t stats_search;
 
     uint8_t *table;
 
@@ -44,7 +45,7 @@ hashmap_cuckoo_total_size(HashMapCuckooPtr ptr) {
 inline void
 hashmap_cuckoo_reset(HashMapCuckooPtr ptr) {
     ptr->count = 0;
-    ptr->stats_search = 0;
+    rte_atomic32_set(&ptr->stats_search, 0);
 
     memset(ptr->table, 0, hashmap_cuckoo_total_size(ptr));
     memset(ptr->scratch_1, 0, ptr->rowsize);
@@ -132,24 +133,20 @@ inline static void print_line(void const *key) {
 
 inline static void *find_or_insert_key(
         HashMapCuckooPtr ptr, void const *key) {
-    //printf("\n\n");
-    //printf("Inserting: %"PRIu64"\n", *(uint64_t const*)key);
     /* Check primary and secondary table */
     uint32_t hash = hash_key(ptr, key);
     uint8_t *keypos = &ptr->tblpri[hash_offset(ptr, hash)];
     rte_prefetch0(keypos);
-    //printf("Trying (Pri): "); print_line(keypos);
 
     uint32_t hash_2 = hash_sec(hash);
     uint8_t *keypos_2 = &ptr->tblsec[hash_offset(ptr, hash_2)];
     rte_prefetch0(keypos_2);
-    //printf("Trying (Sec): "); print_line(keypos_2);
-    //
-    ptr->stats_search++;
+
+    rte_atomic32_inc(&ptr->stats_search);
     if (memcmp(keypos, key, ptr->keysize * 4) == 0)
         return keypos;
 
-    ptr->stats_search++;
+    rte_atomic32_inc(&ptr->stats_search);
     if (memcmp(keypos_2, key, ptr->keysize * 4) == 0)
         return keypos_2;
 
@@ -164,7 +161,7 @@ inline static void *find_or_insert_key(
         rte_memcpy(ptr->scratch_2, keypos, ptr->rowsize*4);
         rte_memcpy(keypos, ptr->scratch_1, ptr->rowsize*4);
         if (memcmp(keypos, key, ptr->keysize) == 0) ret = keypos;
-        ptr->stats_search++;
+        rte_atomic32_inc(&ptr->stats_search);
         if (*((uint32_t*)(ptr->scratch_2)) == 0) {
             return ret;
         }
@@ -177,7 +174,7 @@ inline static void *find_or_insert_key(
         rte_memcpy(ptr->scratch_1, keypos, ptr->rowsize*4);
         rte_memcpy(keypos, ptr->scratch_2, ptr->rowsize*4);
         if (memcmp(keypos, key, ptr->keysize) == 0) ret = keypos;
-        ptr->stats_search++;
+        rte_atomic32_inc(&ptr->stats_search);
         if (*((uint32_t*)(ptr->scratch_1)) == 0) {
             return ret;
         }
@@ -248,5 +245,5 @@ hashmap_cuckoo_count(HashMapCuckooPtr ptr) {
 
 inline uint32_t 
 hashmap_cuckoo_num_searches(HashMapCuckooPtr ptr) {
-    return ptr->stats_search;
+    return (uint32_t)(rte_atomic32_read(&ptr->stats_search));
 }

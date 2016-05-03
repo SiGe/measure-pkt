@@ -1,6 +1,7 @@
 #include "../common.h"
 #include "../vendor/murmur3.h"
 
+#include "rte_atomic.h"
 #include "rte_malloc.h"
 #include "rte_memcpy.h"
 
@@ -12,7 +13,8 @@ struct HashMap {
     uint16_t rowsize;
     uint16_t keysize;
     uint16_t elsize;
-    uint32_t stats_search;
+
+    rte_atomic32_t stats_search;
 
     int table[];
 };
@@ -20,7 +22,7 @@ struct HashMap {
 inline void
 hashmap_reset(HashMapPtr ptr) {
     ptr->count = 0;
-    ptr->stats_search = 0;
+    rte_atomic32_set(&ptr->stats_search, 0);
     memset(ptr->table, 0, ptr->size * (ptr->elsize + ptr->keysize) * sizeof(uint32_t));
 }
 
@@ -52,7 +54,7 @@ hashmap_get_copy_key(HashMapPtr ptr, void const *key) {
             (hash & ptr->size) * (ptr->rowsize)); /* Index */
     rte_memcpy(ret, key, ptr->keysize*4);
     ptr->count++;
-    ptr->stats_search++;
+    rte_atomic32_inc(&ptr->stats_search);
     return (ret + ptr->keysize);
 }
 
@@ -63,7 +65,7 @@ hashmap_get_nocopy_key(HashMapPtr ptr, void const *key) {
     uint32_t *ret = (((uint32_t*)ptr->table) + /* Base addr */
             (hash & ptr->size) * (ptr->rowsize)); /* Index */
     ptr->count++;
-    ptr->stats_search++;
+    rte_atomic32_inc(&ptr->stats_search);
     return (ret + ptr->keysize);
 }
 
@@ -72,7 +74,7 @@ hashmap_get_with_hash(HashMapPtr ptr, uint32_t hash) {
     uint32_t *ret = (((uint32_t*)ptr->table) + /* Base addr */
             (hash & ptr->size) * (ptr->rowsize)); /* Index */
     ptr->count++;
-    ptr->stats_search++;
+    rte_atomic32_inc(&ptr->stats_search);
     return (ret + ptr->keysize);
 }
 
@@ -108,5 +110,5 @@ hashmap_count(HashMapPtr ptr) {
 
 inline uint32_t
 hashmap_num_searches(HashMapPtr ptr){ 
-    return ptr->stats_search;
+    return (uint32_t)(rte_atomic32_read(&ptr->stats_search));
 }

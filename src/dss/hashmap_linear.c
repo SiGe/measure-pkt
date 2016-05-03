@@ -1,6 +1,7 @@
 #include "../common.h"
 #include "../vendor/murmur3.h"
 
+#include "rte_atomic.h"
 #include "rte_malloc.h"
 #include "rte_memcpy.h"
 
@@ -12,7 +13,7 @@ struct HashMapLinear {
     uint16_t rowsize;
     uint16_t keysize;
     uint16_t elsize;
-    uint32_t stats_search;
+    rte_atomic32_t stats_search;
 
     uint32_t *eot;
     uint32_t table[];
@@ -21,7 +22,7 @@ struct HashMapLinear {
 inline void
 hashmap_linear_reset(HashMapLinearPtr ptr) {
     ptr->count = 0;
-    ptr->stats_search = 0;
+    rte_atomic32_set(&ptr->stats_search, 0);
     memset(ptr->table, 0, ptr->size * (ptr->elsize + ptr->keysize) * sizeof(uint32_t));
 }
 
@@ -42,7 +43,7 @@ hashmap_linear_create(uint32_t size, uint16_t keysize,
     ptr->keysize = keysize;
     ptr->rowsize = ptr->elsize + ptr->keysize;
     ptr->eot = ptr->table + (ptr->rowsize * ptr->size);
-    ptr->stats_search = 0;
+    rte_atomic32_inc(&ptr->stats_search);
 
     return ptr;
 }
@@ -50,12 +51,12 @@ hashmap_linear_create(uint32_t size, uint16_t keysize,
 inline static void *
 find_key(HashMapLinearPtr ptr, void const *key, void *ret) {
     uint32_t *init = (uint32_t*)ret;
-    ptr->stats_search++;
+    rte_atomic32_inc(&ptr->stats_search);
     while (1) {
         if (*init == 0) return init;
         if (memcmp(init, key, ptr->keysize * 4) == 0) return init;
         init = init + ptr->rowsize;
-        ptr->stats_search++;
+        rte_atomic32_inc(&ptr->stats_search);
         if (init > ptr->eot) init = (uint32_t *)ptr->table;
     }
 }
@@ -63,12 +64,12 @@ find_key(HashMapLinearPtr ptr, void const *key, void *ret) {
 inline static void *
 find_and_copy_key(HashMapLinearPtr ptr, void const *key, void *ret) {
     uint32_t *init = (uint32_t*)ret;
-    ptr->stats_search++;
+    rte_atomic32_inc(&ptr->stats_search);
     while (1) {
         if (*init == 0) { rte_memcpy(init, key, ptr->keysize * 4); return init; };
         if (memcmp(init, key, ptr->keysize * 4) == 0) return init;
         init = init + ptr->rowsize;
-        ptr->stats_search++;
+        rte_atomic32_inc(&ptr->stats_search);
         if (init > ptr->eot) init = (uint32_t *)ptr->table;
     }
 }
@@ -137,5 +138,5 @@ hashmap_linear_count(HashMapLinearPtr ptr) {
 
 inline uint32_t
 hashmap_linear_num_searches(HashMapLinearPtr ptr) {
-    return ptr->stats_search;
+    return (uint32_t)(rte_atomic32_read(&ptr->stats_search));
 }
