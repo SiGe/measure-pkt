@@ -111,6 +111,126 @@ _getCycles() {
     echo -e "$avg\t$p50\t$p95\t$p99"
 }
 
+_getStats() {
+    local folder=$1
+    local stats=$(cat $folder/stats.log | awk '{print $2}')
+    echo -e "$stats"
+}
+
+_getFolderForExp() {
+    exp=$(_titleToDs $1)
+    trfcDist=$2
+    entries=$3
+    valSize=$4
+    local resultsDir=${_RESULTDIR}
+
+    echo -e "$resultsDir/$trfcDist/$exp/$entries/$valSize"
+}
+
+_statsForExp() {
+    _statsForFolder $(_getFolderForExp $1 $2 $3 $4) $1 $2 $3 $4
+}
+
+_statsForFolder() {
+    local expDir=$1
+    local exp=$2
+    local trfcDist=$3
+    local entries=$4
+    local valSize=$5
+
+    local time=$(_getCycles $expDir)
+    local acc=$(_getAccuracy $expDir $trfcDist)
+    local stats=$(_getStats $expDir)
+    local size=$(_titleToSize $exp $entries $valSize)
+
+    ###################################################################
+    #   1,    2,    3,       4,   5,   6,       7,  8,  9,  10,    11 #
+    # exp, size, dist, valSize, prec, acc, average, 50, 95, 99, stats #
+    ###################################################################
+
+    echo -e "$exp\t$size\t$trfcDist\t$valSize\t$acc\t$time\t$stats"
+}
+
+###################################################################
+#   1,    2,    3,       4,   5,   6,       7,  8,  9,  10,    11 #
+# exp, size, dist, valSize, prec, acc, average, 50, 95, 99, stats #
+###################################################################
+_experimentOverallComparison() {
+    # Available dist: 0.75 1.1 1.5
+    for dist in 1.1; do
+        # for size in 65536 131072 262144 524288; do
+        #     _statsForExp "Heap" $dist $size 3
+        # done
+
+        for size in 524288 1048576 2097152 4194304; do
+            _statsForExp "Simple" $dist $size 3
+        done
+
+        for size in 524288 1048576 2097152 4194304; do
+            _statsForExp "Linear" $dist $size 3
+        done
+
+        for size in 262144 524288 1048576 2097152; do
+            _statsForExp "Cuckoo" $dist $size 3
+        done
+    done | awk '{print $0"\t"$1"-"$3}' | tee stats-tmp.csv
+
+    _drawGraphGroupByField "stats-tmp.csv" '2' '1024*1024' '10' '1' "Size (MB)" "99th percentile (cycles)" "graphs/twisted.pdf" false false '12'
+}
+
+###################################################################
+#   1,    2,    3,       4,   5,   6,       7,  8,  9,  10,    11 #
+# exp, size, dist, valSize, prec, acc, average, 50, 95, 99, stats #
+###################################################################
+_experimentSimpleAccuracy() {
+    # Available dist: 0.5 1.1 1.5
+    for dist in 0.5 1.1 1.5; do
+        for size in 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608; do
+            _statsForExp "Simple" $dist $size 3
+        done
+    done | awk '{print $0"\t"$1"-"$3}' | tee stats-tmp.csv
+
+    _drawGraphGroupByField "stats-tmp.csv" '2' '1024*1024' '10' '1' "Size (MB)" "99th percentile (cycles)" "graphs/simple-size-cyc.pdf" true false '12'
+    _drawGraphGroupByField "stats-tmp.csv" '2' '1024*1024' '5' '1' "Size (MB)" "Precision" "graphs/simple-size-pre.pdf" true false '12'
+    _drawGraphGroupByField "stats-tmp.csv" '10' '1' '5' '1' "99th percentile (cycles)" "Precision" "graphs/simple-cyc-acc.pdf" false false '12'
+}
+
+###################################################################
+#   1,    2,    3,       4,   5,   6,       7,  8,  9,  10,    11 #
+# exp, size, dist, valSize, prec, acc, average, 50, 95, 99, stats #
+###################################################################
+_experimentKeySizePerformance() {
+    for dist in 0.75 1.1 1.5; do
+        for size in 1048576; do
+            _statsForExp "Linear" $dist $size 3
+            _statsForExp "Linear" $dist $size 12
+        done
+    done | awk '{print $0"\t"$1"-"$4}' | tee stats-tmp.csv
+    for dist in 0.75 1.1 1.5; do
+        for size in 524288; do
+            _statsForExp "Cuckoo" $dist $size 3
+            _statsForExp "Cuckoo" $dist $size 12
+        done
+    done | awk '{print $0"\t"$1"-"$4}' | tee -a stats-tmp.csv
+    _drawGraphGroupByField "stats-tmp.csv" '3' '1' '10' '1' "Traffic dist (Zipf param)" "99th percentile (cycles)" "graphs/linear-cuckoo-dist-mov.pdf" false false '12'
+}
+
+_experimentKeySizePointerPerformance() {
+    for dist in 0.75 1.1 1.5; do
+        for size in 1048576; do
+            _statsForExp "LinearPtr" $dist $size 12
+            _statsForExp "Linear" $dist $size 12
+        done
+    done | awk '{print $0"\t"$1"-"$4}' | tee stats-tmp.csv
+    for dist in 0.75 1.1 1.5; do
+        for size in 524288; do
+            _statsForExp "CuckooPtr" $dist $size 12
+            _statsForExp "Cuckoo" $dist $size 12
+        done
+    done | awk '{print $0"\t"$1"-"$4}' | tee -a stats-tmp.csv
+    _drawGraphGroupByField "stats-tmp.csv" '3' '1' '10' '1' "Traffic dist (Zipf param)" "99th percentile (cycles)" "graphs/linear-cuckoo-dist-ptr-mov.pdf" false false '12'
+}
+
 _generateCsvFiles() {
     local resultsDir=${_RESULTDIR}
     for trafficSize in $(ls -d $resultsDir/* | grep -v groundtruth | xargs -L1 basename); do
@@ -119,14 +239,27 @@ _generateCsvFiles() {
             for expSize in $(ls -d $resultsDir/$trafficSize/$exp/* | xargs -L1 basename); do
                 local expDir=$resultsDir/$trafficSize/$exp/$expSize;
                 if ls $expDir/*001*log 1>/dev/null 2>&1; then
-                    local time=$(_getCycles $expDir)
-                    local acc=$(_getAccuracy $expDir $trafficSize)
-                    local size=$(_dsToSize $exp $expSize)
-                    echo -e "$name\t$size\t$trafficSize\t$acc\t$time" | tee -a size-${size}.csv
+                    _statsForFolder $expDir $trafficSize | tee -a size-${size}.csv
                 fi
             done | tee -a exp-${name}.csv
         done | tee dist-${trafficSize}.csv
     done
+}
+
+_titleToDs() {
+    local field=$1
+    local ret=""
+    case $field in
+        "Heap")      ret="01-hh-hm-pqueue";;
+        "CuckooPtr") ret="01-hh-hm-cuckoo-ptr";;
+        "Cuckoo")    ret="01-hh-hm-cuckoo-local";;
+        "LinearPtr") ret="01-hh-hm-linear-ptr";;
+        "Linear")    ret="01-hh-hm-linear";;
+        "RTEHash")   ret="01-hh-hm-cuckoo";;
+        "Simple")    ret="01-hh-hm-simple";;
+        *) ret=$field;;
+    esac
+    echo -e "$ret"
 }
 
 _dsToTitle() {
@@ -145,12 +278,15 @@ _dsToTitle() {
     echo -e "$ret"
 }
 
+_titleToSize() {
+    _dsToSize $(_titleToDs $1) $2 $3
+}
+
 _dsToSize() {
     local field=$1
     local size=$2
-    local factor=${1:-1}
     local keySize=2
-    local elSize=5
+    local elSize=${3:-3}
     local heapFactor=16
     local heapExtra=1
     local ret=""
@@ -163,7 +299,7 @@ _dsToSize() {
         *linear-ptr*)   ret=$(echo "4 * ($keySize + $elSize + 1)" |  bc);;
         *linear*)       ret=$(echo "4 * ($keySize + $elSize + 1)" |  bc);;
     esac
-    echo -e $(echo "($ret * $size)/${factor}" | bc)
+    echo -e $(echo "($ret * $size)" | bc)
 }
 
 _nameToLineType() {
@@ -195,13 +331,16 @@ _drawGraphGroupByField() {
     outputFile="${8:-graphs/graph.pdf}"
 
     xLogScale=${9:-false}
+    yLogScale=${10:-false}
 
-    fields=$(cat $dataFile | awk '{print $1}' | sort | uniq)
+    fieldGroup=${11:-1}
+
+    fields=$(cat $dataFile | awk "{print \$$fieldGroup}" | sort | uniq)
 
     cat graph.tpl > $graphName
     cat <<EOF >>$graphName
 # Get the directory of the benchmark
-set xlabel "Size (MB)"
+set xlabel "$xLabel"
 set ylabel "$yLabel"
 set key outside horizontal bottom center 
 set mxtics 10
@@ -214,70 +353,38 @@ set logscale x
 EOF
     fi
 
+    if [ "$yLogScale" = true ]; then
+        cat <<EOF >>$graphName
+set logscale y
+EOF
+    fi
+
+    count=0
     printf "plot " >>$graphName
     for field in $fields; do
-        cat $dataFile | egrep "$field(\s+)" | sort -nk2 > ${field}-tmp.csv
+        cat $dataFile | egrep "$field(\s+|$)" | sort -nk2 > ${field}-tmp.csv
         local lt=$(_nameToLineType $field)
         printf "'${field}-tmp.csv' using ($yColumnToExtract/($yColumnFactor)):($xColumnToExtract/($xColumnFactor))\
             title '$field' w lp ls $lt," >>$graphName
+        count=$(($count + 1))
     done
 
-    gnuplot $graphName
-    rm *-tmp.csv
-    rm $graphName
-    mv graph.pdf $outputFile
-}
-
-_drawGraphGroupByName() {
-    _drawGraphGroupByField $1 '2' '1024*1024' $2 '1' $3 $4 $5 true
-}
-
-_drawGraphGroupByAccuracy() {
-    _drawGraphGroupByField $1 '4' '1024*1024' $2 '1' $3 $4 $5 true
-}
-
-_drawGraphPerExperiment() {
-    _drawGraphGroupByField $1 '2' '1' $2 '1' $3 $4 $5 true
-}
-
-_drawGraphFixSize() {
-    _drawGraphGroupByField $1 '3' '1' $2 '1' $3 $4 $5 false
-}
-
-_drawSizeGraphs() {
-    for i in $(ls dist*csv); do
-        name=$(echo $i | rev | cut -d'.' -f2- | rev)
-        _drawGraphGroupByName     $i 9 "Size (MB)" "99th percentile (cycles)" graphs/$name-cyc-size-99.pdf
-        _drawGraphGroupByName     $i 6 "Size (MB)" "Average (cycles)" graphs/$name-cyc-size-avg.pdf
-        _drawGraphGroupByName     $i 4 "Size (MB)" "Precision" graphs/$name-pre-size-avg.pdf
-        _drawGraphGroupByName     $i 5 "Size (MB)" "Recall" graphs/$name-rec-size-avg.pdf
-        _drawGraphGroupByAccuracy $i 9 "Size (MB)" "99th percentile (cycles)" graphs/$name-pre-cyc-avg.pdf
-    done
-}
-
-_drawExpGraphs() {
-    for i in $(ls exp*csv); do 
-        name=$(echo $i | rev | cut -d'.' -f2- | rev | cut -d'-' -f4-)
-        _drawGraphPerExperiment $i 9 "Size (MB)" "99th percentile (cycles)" graphs/$name-cyc-size-99.pdf
-    done
-}
-
-_drawFixGraphs() {
-    for i in $(ls size*csv); do 
-        name=$(echo $i | cut  -d'-' -f2 | cut -d'.' -f1)
-        _drawGraphFixSize $i 9 "Traffic dist. (zipf param)" "99th percentile (cycles)" graphs/$name-dist-cyc-99.pdf
-    done
-}
-
-_drawGraphs() {
-    _drawSizeGraphs
-    _drawExpGraphs
-    _drawFixGraphs
+    if [ "$count" -ne '0' ]; then
+        gnuplot $graphName
+        mv graph.pdf $outputFile
+        #rm *-tmp.csv
+    fi
+    #rm $graphName
 }
 
 _run() {
-    _generateCsvFiles
-    _drawGraphs
+    # _generateCsvFiles
+    # _drawGraphs
+    # rm *csv
+    _experimentKeySizePointerPerformance
+    _experimentKeySizePerformance
+    _experimentOverallComparison
+    _experimentSimpleAccuracy
 }
 
 

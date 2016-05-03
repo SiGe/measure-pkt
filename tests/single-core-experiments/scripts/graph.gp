@@ -31,3 +31,10 @@ set style line 4 lt rgb "#F25900" lw 2 pt 9
 set style line 5 lt rgb "#5F209B" lw 2 pt 4
 
 set output "graph.pdf"
+# Get the directory of the benchmark
+set xlabel "99th percentile (cycles)"
+set ylabel "Precision"
+set key outside horizontal bottom center 
+set mxtics 10
+# set yrange [10:100]
+plot 'Simple-0.5-tmp.csv' using ($10/(1)):($5/(1))            title 'Simple-0.5' w lp ls 5,'Simple-1.1-tmp.csv' using ($10/(1)):($5/(1))            title 'Simple-1.1' w lp ls 5,'Simple-1.5-tmp.csv' using ($10/(1)):($5/(1))            title 'Simple-1.5' w lp ls 5,

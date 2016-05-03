@@ -6,7 +6,7 @@ Experiment:
               - name: HeavyHitter::Hashmap
                 size: 524288
                 keysize: 2
-                valsize: 28
+                valsize: 3
                 socket: 1
                 file-prefix: hh-simple-%04d.log
                 reporter-size: 2048
