@@ -210,6 +210,9 @@ _experimentKeySizePerformance() {
         for size in 524288; do
             _statsForExp "Cuckoo" $dist $size 3
             _statsForExp "Cuckoo" $dist $size 12
+
+            _statsForExp "CuckooBucket" $dist $size 3
+            _statsForExp "CuckooBucket" $dist $size 12
         done
     done | awk '{print $0"\t"$1"-"$4}' | tee -a stats-tmp.csv
     _drawGraphGroupByField "stats-tmp.csv" '3' '1' '10' '1' "Traffic dist (Zipf param)" "99th percentile (cycles)" "graphs/linear-cuckoo-dist-mov.pdf" false false '12'
@@ -226,6 +229,7 @@ _experimentKeySizePointerPerformance() {
         for size in 524288; do
             _statsForExp "CuckooPtr" $dist $size 12
             _statsForExp "Cuckoo" $dist $size 12
+            _statsForExp "CuckooBucket" $dist $size 12
         done
     done | awk '{print $0"\t"$1"-"$4}' | tee -a stats-tmp.csv
 
@@ -252,13 +256,14 @@ _titleToDs() {
     local field=$1
     local ret=""
     case $field in
-        "Heap")      ret="01-hh-hm-pqueue";;
-        "CuckooPtr") ret="01-hh-hm-cuckoo-ptr";;
-        "Cuckoo")    ret="01-hh-hm-cuckoo-local";;
-        "LinearPtr") ret="01-hh-hm-linear-ptr";;
-        "Linear")    ret="01-hh-hm-linear";;
-        "RTEHash")   ret="01-hh-hm-cuckoo";;
-        "Simple")    ret="01-hh-hm-simple";;
+        "Heap")         ret="01-hh-hm-pqueue";;
+        "CuckooBucket") ret="01-hh-hm-cuckoo-bucket";;
+        "CuckooPtr")    ret="01-hh-hm-cuckoo-ptr";;
+        "Cuckoo")       ret="01-hh-hm-cuckoo-local";;
+        "LinearPtr")    ret="01-hh-hm-linear-ptr";;
+        "Linear")       ret="01-hh-hm-linear";;
+        "RTEHash")      ret="01-hh-hm-cuckoo";;
+        "Simple")       ret="01-hh-hm-simple";;
         *) ret=$field;;
     esac
     echo -e "$ret"
@@ -269,6 +274,7 @@ _dsToTitle() {
     local ret=""
     case $field in
         *pqueue*)       ret="Heap";;
+        *cuckoo-bucket*)ret="CuckooBucket";;
         *cuckoo-ptr*)   ret="CuckooPtr";;
         *cuckoo-local*) ret="Cuckoo";;
         *cuckoo*)       ret="RTEHash";;
@@ -294,6 +300,7 @@ _dsToSize() {
     local ret=""
     case $field in
         *pqueue*)       ret=$(echo "4 * ($keySize + $elSize + $heapExtra) * $heapFactor * 2" | bc);;
+        *cuckoo-bucket*)ret=$(echo "4 * ($keySize + $elSize + 1) * 2" |  bc);;
         *cuckoo-ptr*)   ret=$(echo "4 * ($keySize + $elSize + 1) * 2" |  bc);;
         *cuckoo-local*) ret=$(echo "4 * ($keySize + $elSize + 1) * 2" |  bc);;
         *cuckoo*)       ret=$(echo "4 * ($keySize + $elSize + 1)" |  bc);;
@@ -307,6 +314,7 @@ _dsToSize() {
 _nameToLineType() {
     local ret="1"
     case $field in
+        *CuckooBucket*) ret="5";;
         *CuckooPtr*)    ret="1";;
         *Cuckoo*)       ret="2";;
         *LinearPtr*)    ret="3";;

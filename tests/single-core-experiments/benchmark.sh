@@ -76,6 +76,7 @@ for dist in 0.75 1.1 1.25 1.5; do
     RunBenchmark "$bashDir/01-hh-hm-simple.yaml" "262144 524288 1048576 2097152 4194304 8388608" "3" 100 $dist
     RunBenchmark "$bashDir/01-hh-hm-linear.yaml" "262144 524288 1048576 2097152 4194304 8388608" "3" 100 $dist
     RunBenchmark "$bashDir/01-hh-hm-cuckoo-local.yaml" "131072 262144 524288 1048576 2097152 4194304" "3" 100 $dist
+    RunBenchmark "$bashDir/01-hh-hm-cuckoo-bucket.yaml" "131072 262144 524288 1048576 2097152 4194304" "3" 100 $dist
 done
 
 # Experiment to show the accuracy of the simple-count-array -- it's pretty accurate
@@ -90,13 +91,17 @@ for dist in 0.75 1.1 1.25 1.5 1.75; do
 
     RunBenchmark "$bashDir/01-hh-hm-cuckoo-local.yaml" "131072 262144 524288 1048576 2097152 4194304" "3"  100 $dist
     RunBenchmark "$bashDir/01-hh-hm-cuckoo-local.yaml" "131072 262144 524288 1048576 2097152 4194304" "12" 100 $dist
+
+    RunBenchmark "$bashDir/01-hh-hm-cuckoo-bucket.yaml" "131072 262144 524288 1048576 2097152 4194304" "3"  100 $dist
+    RunBenchmark "$bashDir/01-hh-hm-cuckoo-bucket.yaml" "131072 262144 524288 1048576 2097152 4194304" "12" 100 $dist
 done
 
 # Experiment to show that moving the keys to distance planet improves the performance
 for dist in 0.75 1.1 1.25 1.5 1.75; do
-    RunBenchmark "$bashDir/01-hh-hm-linear-ptr.yaml" "131072 262144 524288 1048576 2097152 4194304 8388608" "12"  100 $dist
     RunBenchmark "$bashDir/01-hh-hm-linear.yaml"     "131072 262144 524288 1048576 2097152 4194304 8388608" "12" 100 $dist
+    RunBenchmark "$bashDir/01-hh-hm-linear-ptr.yaml" "131072 262144 524288 1048576 2097152 4194304 8388608" "12"  100 $dist
 
     RunBenchmark "$bashDir/01-hh-hm-cuckoo-ptr.yaml"   "65536 131072 262144 524288 1048576 2097152 4194304" "12" 100 $dist
     RunBenchmark "$bashDir/01-hh-hm-cuckoo-local.yaml" "65536 131072 262144 524288 1048576 2097152 4194304" "12" 100 $dist
+    RunBenchmark "$bashDir/01-hh-hm-cuckoo-bucket.yaml" "65536 131072 262144 524288 1048576 2097152 4194304" "12" 100 $dist
 done
