@@ -23,10 +23,13 @@
 #include "net.h"
 #include "pkt.h"
 #include "reporter.h"
-#include "tests/test.h"
 
 #include "dss/pqueue.h"
 #include "dss/hashmap_cuckoo.h"
+
+#ifdef IS_TEST_BUILD
+#include "../tests/test.h"
+#endif
 
 #define PORT_COUNT 2
 
@@ -158,7 +161,10 @@ main(int argc, char **argv) {
     argc -= ret;
     argv += ret;
 
-    if (!tests_run()) exit(EXIT_FAILURE);
+#ifdef IS_TEST_BUILD
+    // Run tests if this is a test build
+    exit(run_tests());
+#endif
 
     g_exprs = expr_parse(argv[1]);
 

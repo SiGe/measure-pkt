@@ -41,6 +41,10 @@ include $(RTE_SDK)/mk/rte.vars.mk
 # binary name
 APP = l2fwd
 
+CFLAGS += -O3 -g
+LDFLAGS += -lpcap -lyaml -lcheck_pic -lrt -lm
+CFLAGS += $(WERROR_FLAGS)
+
 # all source are stored in SRCS-y
 SRCS-y := \
 	src/dss/hashmap.c \
@@ -57,7 +61,7 @@ SRCS-y := \
 	src/net.c \
 	src/pkt.c \
 	src/reporter.c \
-   	src/vendor/murmur3.c \
+	src/vendor/murmur3.c \
 	src/modules/count_array.c \
 	src/modules/super_spreader.c \
 	src/modules/ring.c \
@@ -70,13 +74,17 @@ SRCS-y := \
 	src/modules/heavyhitter/hashmap_linear.c \
 	src/modules/heavyhitter/hashmap_linear_ptr.c \
 	src/modules/heavyhitter/pqueue.c \
-	src/tests/test.c \
-	
+	src/tests/test.c
 
-CFLAGS += -O3 -g# -march=native
-#CFLAGS += -fmodulo-sched -fmodulo-sched-allow-regmoves
-LDFLAGS += -lpcap -lyaml
-#CFLAGS += -O0 -g
-CFLAGS += $(WERROR_FLAGS)
+ifdef TESTS
+CFLAGS += -DIS_TEST_BUILD=1
+SRCS-y += tests/test.c
+LDFLAGS += -lcheck_pic -lrt -lm
+APP = test
+endif
+
+
+.PHONY: check
+check: clean install
 
 include $(RTE_SDK)/mk/rte.extapp.mk

@@ -40,6 +40,31 @@ struct HashMapCuckooBucket {
     uint8_t end[];
 };
 
+static void
+print_tbl(HashMapCuckooBucketPtr ptr, uint32_t *tbl) {
+    uint32_t *bucket = tbl;
+    unsigned i, j;
+    for (i = 0; i < ptr->num_buckets; ++i) {
+        uint32_t *entry = bucket;
+        for (j = 0; j < ptr->entries_per_bucket; ++j) {
+            printf("[%-3u -> %-7u (%10u)]\t", *(entry+0), *(entry+ptr->keysize+1), *(entry+ptr->keysize));
+            entry += ptr->rowsize;
+        }
+        printf("\n");
+        bucket += ptr->bucket_size;
+    }
+}
+
+static void __attribute__((unused))
+print_hashmap(HashMapCuckooBucketPtr ptr) {
+    printf("******************** PRI ********************\n");
+    print_tbl(ptr, (uint32_t*)ptr->tblpri);
+
+    printf("******************** SEC ********************\n");
+    print_tbl(ptr, (uint32_t*)ptr->tblsec);
+}
+
+
 /* Algorithm and ideas mostly taken from:
  *  1) http://cs.stanford.edu/~rishig/courses/ref/l13a.pdf
  *  2) librte_hash
@@ -114,7 +139,7 @@ hash_offset(HashMapCuckooBucketPtr ptr, uint32_t idx) {
 
 inline static int
 is_entry_empty(HashMapCuckooBucketPtr ptr, void const *entry) {
-    return (*(((uint32_t const*)entry)+ptr->keysize) == 1);
+    return (*(((uint32_t const*)entry)+ptr->keysize) == 0);
 }
 
 inline static void* 
@@ -127,7 +152,7 @@ find_key_in_bucket(HashMapCuckooBucketPtr ptr,
 
     for (i = 0; i < entries; ++i) {
         rte_atomic32_inc(&ptr->stats_search);
-        if (ptr->cmp(key, entry, keysize)) {
+        if (ptr->cmp(key, entry, keysize) == 0) {
             return (void*)entry;
         }
 
@@ -150,13 +175,13 @@ find_or_insert_key_in_bucket(HashMapCuckooBucketPtr ptr,
 
     for (i = 0; i < entries; ++i) {
         rte_atomic32_inc(&ptr->stats_search);
-        if (ptr->cmp(key, entry, keysize)) {
+        if (ptr->cmp(key, entry, keysize) == 0) {
             return entry;
         }
 
         if (is_entry_empty(ptr, entry)) {
             rte_memcpy(entry, key, ptr->keysize*4);
-            rte_memcpy(entry+1, &hash, sizeof(uint32_t));
+            rte_memcpy(entry+ptr->keysize, &hash, sizeof(uint32_t));
             return entry;
         }
 
