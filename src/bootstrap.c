@@ -1,20 +1,20 @@
 #include "module.h"
 #include "bootstrap.h"
 
-#include "modules/count_array_cuckoo.h"
-#include "modules/count_array_cuckoo_local.h"
-#include "modules/count_array_cuckoo_local_ptr.h"
-#include "modules/count_array_hashmap.h"
-#include "modules/count_array_hashmap_linear.h"
-#include "modules/count_array_hashmap_linear_ptr.h"
-#include "modules/count_array_pqueue.h"
+#include "modules/heavyhitter/cuckoo.h"
+#include "modules/heavyhitter/cuckoo_local.h"
+#include "modules/heavyhitter/cuckoo_local_ptr.h"
+#include "modules/heavyhitter/hashmap.h"
+#include "modules/heavyhitter/hashmap_linear.h"
+#include "modules/heavyhitter/hashmap_linear_ptr.h"
+#include "modules/heavyhitter/pqueue.h"
 
 void boostrap_register_modules(void) {
-    REGISTER_MODULE("HeavyHitter::Cuckoo", count_array_cuckoo);
-    REGISTER_MODULE("HeavyHitter::CuckooLocal", count_array_cuckoo_local);
-    REGISTER_MODULE("HeavyHitter::CuckooLocalPointer", count_array_cuckoo_local_ptr);
-    REGISTER_MODULE("HeavyHitter::Hashmap", count_array_hashmap);
-    REGISTER_MODULE("HeavyHitter::HashmapLinear", count_array_hashmap_linear);
-    REGISTER_MODULE("HeavyHitter::HashmapLinearPointer", count_array_hashmap_linear_ptr);
-    REGISTER_MODULE("HeavyHitter::PQueue", count_array_pqueue);
+    REGISTER_MODULE("HeavyHitter::Cuckoo",                  heavyhitter_cuckoo);
+    REGISTER_MODULE("HeavyHitter::CuckooLocal",             heavyhitter_cuckoo_local);
+    REGISTER_MODULE("HeavyHitter::CuckooLocalPointer",      heavyhitter_cuckoo_local_ptr);
+    REGISTER_MODULE("HeavyHitter::Hashmap",                 heavyhitter_hashmap);
+    REGISTER_MODULE("HeavyHitter::HashmapLinear",           heavyhitter_hashmap_linear);
+    REGISTER_MODULE("HeavyHitter::HashmapLinearPointer",    heavyhitter_hashmap_linear_ptr);
+    REGISTER_MODULE("HeavyHitter::PQueue",                  heavyhitter_pqueue);
 }

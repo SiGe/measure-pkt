@@ -22,21 +22,17 @@
  * SOFTWARE.
  */
 
-#ifndef _COUNT_ARRAY_PQUEUE_H_
-#define _COUNT_ARRAY_PQUEUE_H_
+#ifndef _COUNT_ARRAY_CUCKOO_H_
+#define _COUNT_ARRAY_CUCKOO_H_
 
-#include "rte_spinlock.h"
-
-#include "../common.h"
-#include "../experiment.h"
-#include "../module.h"
-#include "../net.h"
-#include "../reporter.h"
-
-#include "../dss/pqueue.h"
+#include "../../common.h"
+#include "../../experiment.h"
+#include "../../module.h"
+#include "../../net.h"
+#include "../../reporter.h"
 
 typedef uint32_t Counter;
-struct ModuleCountArrayPQueue {
+struct ModuleHeavyHitterCuckoo {
     struct Module _m;
 
     uint32_t  size;
@@ -44,24 +40,25 @@ struct ModuleCountArrayPQueue {
     unsigned  elsize;
     unsigned  socket;
 
-    unsigned stats_search;
+    struct rte_hash *hashmap;
+    uint8_t *counters;
 
     ReporterPtr reporter;
-    PriorityQueuePtr pqueue;
 
-    PriorityQueuePtr pqueue_ptr1;
-    PriorityQueuePtr pqueue_ptr2;
+    struct rte_hash *key_buf1;
+    struct rte_hash *key_buf2;
 
-    rte_spinlock_t lock;
+    uint8_t *val_buf1;
+    uint8_t *val_buf2;
 };
 
-typedef struct ModuleCountArrayPQueue* ModuleCountArrayPQueuePtr;
+typedef struct ModuleHeavyHitterCuckoo* ModuleHeavyHitterCuckooPtr;
 
-ModulePtr count_array_pqueue_init(ModuleConfigPtr);
+ModulePtr heavyhitter_cuckoo_init(ModuleConfigPtr);
 
-void count_array_pqueue_delete(ModulePtr);
-void count_array_pqueue_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
-void count_array_pqueue_reset(ModulePtr);
-void count_array_pqueue_stats(ModulePtr, FILE *);
+void heavyhitter_cuckoo_delete(ModulePtr);
+void heavyhitter_cuckoo_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
+void heavyhitter_cuckoo_reset(ModulePtr);
+void heavyhitter_cuckoo_stats(ModulePtr, FILE *f);
 
-#endif //PQUEUE
+#endif

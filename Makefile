@@ -61,14 +61,15 @@ SRCS-y := \
 	src/modules/super_spreader.c \
 	src/modules/ring.c \
 	src/modules/consumer.c \
-	src/modules/count_array_cuckoo.c \
-	src/modules/count_array_cuckoo_local.c \
-	src/modules/count_array_cuckoo_local_ptr.c \
-	src/modules/count_array_hashmap.c \
-	src/modules/count_array_hashmap_linear.c \
-	src/modules/count_array_hashmap_linear_ptr.c \
-	src/modules/count_array_pqueue.c \
+	src/modules/heavyhitter/cuckoo.c \
+	src/modules/heavyhitter/cuckoo_local.c \
+	src/modules/heavyhitter/cuckoo_local_ptr.c \
+	src/modules/heavyhitter/hashmap.c \
+	src/modules/heavyhitter/hashmap_linear.c \
+	src/modules/heavyhitter/hashmap_linear_ptr.c \
+	src/modules/heavyhitter/pqueue.c \
 	src/tests/test.c \
+#	src/dss/hashmap_cuckoo_bucket.c \
 	
 
 CFLAGS += -O3 -g# -march=native

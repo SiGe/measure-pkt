@@ -8,14 +8,14 @@
 #include "rte_malloc.h"
 #include "rte_mbuf.h"
 
-#include "../common.h"
-#include "../vendor/murmur3.h"
-#include "../module.h"
-#include "../net.h"
-#include "../pkt.h"
-#include "../reporter.h"
+#include "../../common.h"
+#include "../../vendor/murmur3.h"
+#include "../../module.h"
+#include "../../net.h"
+#include "../../pkt.h"
+#include "../../reporter.h"
 
-#include "count_array_cuckoo.h"
+#include "cuckoo.h"
 
 inline static uint32_t
 murmur3_func(const void *key, uint32_t keylen, uint32_t init) {
@@ -26,11 +26,11 @@ murmur3_func(const void *key, uint32_t keylen, uint32_t init) {
 }
 
 inline static unsigned
-val_space_size(ModuleCountArrayCuckooPtr m) {
+val_space_size(ModuleHeavyHitterCuckooPtr m) {
     return m->size * m->elsize * 4;
 }
 
-ModulePtr count_array_cuckoo_init(ModuleConfigPtr conf) {
+ModulePtr heavyhitter_cuckoo_init(ModuleConfigPtr conf) {
     uint32_t size    = mc_uint32_get(conf, "size");
     uint32_t keysize = mc_uint32_get(conf, "keysize");
     uint32_t elsize  = mc_uint32_get(conf, "valsize");
@@ -57,11 +57,11 @@ ModulePtr count_array_cuckoo_init(ModuleConfigPtr conf) {
         .hash_func = murmur3_func,
     };
 
-    ModuleCountArrayCuckooPtr module = rte_zmalloc_socket(0,
-            sizeof(struct ModuleCountArrayCuckoo), 64, socket); 
+    ModuleHeavyHitterCuckooPtr module = rte_zmalloc_socket(0,
+            sizeof(struct ModuleHeavyHitterCuckoo), 64, socket); 
 
 
-    module->_m.execute = count_array_cuckoo_execute;
+    module->_m.execute = heavyhitter_cuckoo_execute;
     module->size  = size;
     module->keysize = keysize;
     module->elsize = elsize;
@@ -82,8 +82,8 @@ ModulePtr count_array_cuckoo_init(ModuleConfigPtr conf) {
     return (ModulePtr)module;
 }
 
-void count_array_cuckoo_delete(ModulePtr module_) {
-    ModuleCountArrayCuckooPtr module = (ModuleCountArrayCuckooPtr)module_;
+void heavyhitter_cuckoo_delete(ModulePtr module_) {
+    ModuleHeavyHitterCuckooPtr module = (ModuleHeavyHitterCuckooPtr)module_;
     rte_free(module->val_buf1);
     rte_free(module->val_buf2);
     rte_hash_free(module->key_buf1);
@@ -96,14 +96,14 @@ void count_array_cuckoo_delete(ModulePtr module_) {
         (sizeof(struct ether_addr))))
 
 inline void
-count_array_cuckoo_execute(
+heavyhitter_cuckoo_execute(
         ModulePtr module_,
         PortPtr port __attribute__((unused)),
         struct rte_mbuf ** __restrict__ pkts,
         uint32_t count) {
     (void)(port);
 
-    ModuleCountArrayCuckooPtr module = (ModuleCountArrayCuckooPtr)module_;
+    ModuleHeavyHitterCuckooPtr module = (ModuleHeavyHitterCuckooPtr)module_;
     uint16_t i = 0;
     uint64_t timer = rte_get_tsc_cycles();
     (void)(timer);
@@ -141,8 +141,8 @@ count_array_cuckoo_execute(
 }
 
 void
-count_array_cuckoo_reset(ModulePtr module_) {
-    ModuleCountArrayCuckooPtr module = (ModuleCountArrayCuckooPtr)module_;
+heavyhitter_cuckoo_reset(ModulePtr module_) {
+    ModuleHeavyHitterCuckooPtr module = (ModuleHeavyHitterCuckooPtr)module_;
     struct rte_hash *key_tmp = module->hashmap;
     reporter_tick(module->reporter);
 
@@ -161,8 +161,8 @@ count_array_cuckoo_reset(ModulePtr module_) {
 }
 
 inline void
-count_array_cuckoo_stats(ModulePtr module_, FILE *f) {
-    ModuleCountArrayCuckooPtr module = (ModuleCountArrayCuckooPtr)module_;
+heavyhitter_cuckoo_stats(ModulePtr module_, FILE *f) {
+    ModuleHeavyHitterCuckooPtr module = (ModuleHeavyHitterCuckooPtr)module_;
     (void)(module);
     fprintf(f, "HeavyHitter::RTEHash::SearchLoad\t0\n");
 }

@@ -7,17 +7,17 @@
 #include "rte_malloc.h"
 #include "rte_mbuf.h"
 
-#include "../common.h"
-#include "../experiment.h"
-#include "../vendor/murmur3.h"
-#include "../module.h"
-#include "../net.h"
-#include "../reporter.h"
+#include "../../common.h"
+#include "../../experiment.h"
+#include "../../vendor/murmur3.h"
+#include "../../module.h"
+#include "../../net.h"
+#include "../../reporter.h"
 
-#include "../dss/hashmap_cuckoo.h"
-#include "count_array_cuckoo_local.h"
+#include "../../dss/hashmap_cuckoo.h"
+#include "cuckoo_local.h"
 
-ModulePtr count_array_cuckoo_local_init(ModuleConfigPtr conf) {
+ModulePtr heavyhitter_cuckoo_local_init(ModuleConfigPtr conf) {
     uint32_t size    = mc_uint32_get(conf, "size");
     uint32_t keysize = mc_uint32_get(conf, "keysize");
     uint32_t elsize  = mc_uint32_get(conf, "valsize");
@@ -30,10 +30,10 @@ ModulePtr count_array_cuckoo_local_init(ModuleConfigPtr conf) {
             keysize * 4, socket,
             mc_string_get(conf, "file-prefix"));
 
-    ModuleCountArrayCuckooLPtr module = rte_zmalloc_socket(0,
-            sizeof(struct ModuleCountArrayCuckooL), 64, socket); 
+    ModuleHeavyHitterCuckooLPtr module = rte_zmalloc_socket(0,
+            sizeof(struct ModuleHeavyHitterCuckooL), 64, socket); 
 
-    module->_m.execute = count_array_cuckoo_local_execute;
+    module->_m.execute = heavyhitter_cuckoo_local_execute;
     module->size  = size;
     module->keysize = keysize;
     module->elsize = elsize;
@@ -48,8 +48,8 @@ ModulePtr count_array_cuckoo_local_init(ModuleConfigPtr conf) {
     return (ModulePtr)module;
 }
 
-void count_array_cuckoo_local_delete(ModulePtr module_) {
-    ModuleCountArrayCuckooLPtr module = (ModuleCountArrayCuckooLPtr)module_;
+void heavyhitter_cuckoo_local_delete(ModulePtr module_) {
+    ModuleHeavyHitterCuckooLPtr module = (ModuleHeavyHitterCuckooLPtr)module_;
 
     hashmap_cuckoo_delete(module->hashmap_ptr1);
     hashmap_cuckoo_delete(module->hashmap_ptr2);
@@ -62,14 +62,14 @@ void count_array_cuckoo_local_delete(ModulePtr module_) {
         (sizeof(struct ether_addr))))
 
 inline void
-count_array_cuckoo_local_execute(
+heavyhitter_cuckoo_local_execute(
         ModulePtr module_,
         PortPtr port __attribute__((unused)),
         struct rte_mbuf ** __restrict__ pkts,
         uint32_t count) {
     (void)(port);
 
-    ModuleCountArrayCuckooLPtr module = (ModuleCountArrayCuckooLPtr)module_;
+    ModuleHeavyHitterCuckooLPtr module = (ModuleHeavyHitterCuckooLPtr)module_;
     uint16_t i = 0;
     uint64_t timer = rte_get_tsc_cycles(); (void)(timer);
     void *ptrs[MAX_PKT_BURST];
@@ -101,8 +101,8 @@ count_array_cuckoo_local_execute(
 }
 
 inline void
-count_array_cuckoo_local_reset(ModulePtr module_) {
-    ModuleCountArrayCuckooLPtr module = (ModuleCountArrayCuckooLPtr)module_;
+heavyhitter_cuckoo_local_reset(ModulePtr module_) {
+    ModuleHeavyHitterCuckooLPtr module = (ModuleHeavyHitterCuckooLPtr)module_;
     HashMapCuckooPtr prev = module->hashmap;
     reporter_tick(module->reporter);
 
@@ -117,8 +117,8 @@ count_array_cuckoo_local_reset(ModulePtr module_) {
 }
 
 inline void
-count_array_cuckoo_local_stats(ModulePtr module_, FILE *f) {
-    ModuleCountArrayCuckooLPtr module = (ModuleCountArrayCuckooLPtr)module_;
+heavyhitter_cuckoo_local_stats(ModulePtr module_, FILE *f) {
+    ModuleHeavyHitterCuckooLPtr module = (ModuleHeavyHitterCuckooLPtr)module_;
     module->stats_search += hashmap_cuckoo_num_searches(module->hashmap);
     fprintf(f, "HeavyHitter::Cuckoo::SearchLoad\t%u\n", module->stats_search);
 }

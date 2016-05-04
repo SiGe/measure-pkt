@@ -8,16 +8,17 @@
 #include "rte_mbuf.h"
 #include "rte_spinlock.h"
 
-#include "../common.h"
-#include "../experiment.h"
-#include "../module.h"
-#include "../net.h"
-#include "../reporter.h"
+#include "../../common.h"
+#include "../../experiment.h"
+#include "../../module.h"
+#include "../../net.h"
+#include "../../reporter.h"
 
-#include "../dss/pqueue.h"
-#include "../vendor/murmur3.h"
+#include "../../dss/pqueue.h"
+#include "../../vendor/murmur3.h"
 
-#include "count_array_pqueue.h"
+#include "common.h"
+#include "pqueue.h"
 
 static int
 counter_comp(void const *ap, void const *bp) {
@@ -27,7 +28,7 @@ counter_comp(void const *ap, void const *bp) {
     return -((a >= b) - (a <= b));
 }
 
-ModulePtr count_array_pqueue_init(ModuleConfigPtr conf) {
+ModulePtr heavyhitter_pqueue_init(ModuleConfigPtr conf) {
     uint32_t size    = mc_uint32_get(conf, "size");
     uint32_t keysize = mc_uint32_get(conf, "keysize");
     uint32_t elsize  = mc_uint32_get(conf, "valsize");
@@ -38,14 +39,14 @@ ModulePtr count_array_pqueue_init(ModuleConfigPtr conf) {
             keysize * 4, socket,
             mc_string_get(conf, "file-prefix"));
 
-    ModuleCountArrayPQueuePtr module = rte_zmalloc_socket(0,
-            sizeof(struct ModuleCountArrayPQueue), 64, socket); 
+    ModuleHeavyHitterPQueuePtr module = rte_zmalloc_socket(0,
+            sizeof(struct ModuleHeavyHitterPQueue), 64, socket); 
 
 
     /* XXX: we have to save the keys with the values ... rte_hash */
     elsize = keysize + elsize;
 
-    module->_m.execute = count_array_pqueue_execute;
+    module->_m.execute = heavyhitter_pqueue_execute;
     module->size  = size;
     module->keysize = keysize;
     module->elsize = elsize;
@@ -61,8 +62,8 @@ ModulePtr count_array_pqueue_init(ModuleConfigPtr conf) {
     return (ModulePtr)module;
 }
 
-void count_array_pqueue_delete(ModulePtr module_) {
-    ModuleCountArrayPQueuePtr module = (ModuleCountArrayPQueuePtr)module_;
+void heavyhitter_pqueue_delete(ModulePtr module_) {
+    ModuleHeavyHitterPQueuePtr module = (ModuleHeavyHitterPQueuePtr)module_;
 
     pqueue_delete(module->pqueue_ptr1);
     pqueue_delete(module->pqueue_ptr2);
@@ -75,14 +76,14 @@ void count_array_pqueue_delete(ModulePtr module_) {
         (sizeof(struct ether_addr))))
 
 inline void
-count_array_pqueue_execute(
+heavyhitter_pqueue_execute(
         ModulePtr module_,
         PortPtr port __attribute__((unused)),
         struct rte_mbuf ** __restrict__ pkts,
         uint32_t count) {
     (void)(port);
 
-    ModuleCountArrayPQueuePtr module = (ModuleCountArrayPQueuePtr)module_;
+    ModuleHeavyHitterPQueuePtr module = (ModuleHeavyHitterPQueuePtr)module_;
     uint16_t i = 0;
     uint64_t timer = rte_get_tsc_cycles(); (void)(timer);
     pqueue_index_t idx;
@@ -97,29 +98,28 @@ count_array_pqueue_execute(
         void *ptr = pqueue_get_copy_key(module->pqueue, (pkt + 26), &idx);
 
         /* Layout of each cell in the PQueue is:
-         * 0 : [count]
-         * 4 : [ key ]: [src/dst ip]
+         * 0 : [ key ]: [src/dst ip]
+         * 8 : [count]
          * 12: [value]: [pkt-data until elsize is satisfied]
          */
-        uint32_t *bc = (uint32_t*)(ptr); (*bc)++;
-        rte_memcpy(bc + 1, pkt+26, sizeof(uint32_t) * keysize);
-        pqueue_heapify_index(module->pqueue, idx);
+        uint32_t *bc = (uint32_t*)(ptr);
+        rte_memcpy(bc, pkt+26, sizeof(uint32_t) * keysize);
+        bc += keysize; (*bc)++;
         rte_memcpy((bc + keysize + 1), pkt, (elsize-keysize-1)*4);
+        pqueue_heapify_index(module->pqueue, idx);
     }
 
     rte_spinlock_unlock(&module->lock);
 }
 
 static void
-save_heavy_hitters(PriorityQueuePtr pq, ReporterPtr reporter) {
+save_heavy_hitters(PriorityQueuePtr pq, ReporterPtr reporter, uint16_t keysize) {
     void *cell = 0; pqueue_index_t idx = 0;
-    uint16_t tot = 0;
     while ((cell = pqueue_iterate(pq, &idx)) != 0) {
-        uint32_t count = *(uint32_t*)cell;
+        uint32_t count = *((uint32_t*)cell+keysize);
 
         if (count > HEAVY_HITTER_THRESHOLD) {
-            reporter_add_entry(reporter, ((uint32_t*)cell+1));
-            tot++;
+            reporter_add_entry(reporter, ((uint32_t*)cell));
         }
     }
     reporter_tick(reporter);
@@ -127,8 +127,8 @@ save_heavy_hitters(PriorityQueuePtr pq, ReporterPtr reporter) {
 }
 
 inline void
-count_array_pqueue_reset(ModulePtr module_) {
-    ModuleCountArrayPQueuePtr module = (ModuleCountArrayPQueuePtr)module_;
+heavyhitter_pqueue_reset(ModulePtr module_) {
+    ModuleHeavyHitterPQueuePtr module = (ModuleHeavyHitterPQueuePtr)module_;
     PriorityQueuePtr prev = module->pqueue;
 
     if (module->pqueue == module->pqueue_ptr1) {
@@ -137,7 +137,7 @@ count_array_pqueue_reset(ModulePtr module_) {
         module->pqueue = module->pqueue_ptr1;
     }
 
-    save_heavy_hitters(prev, module->reporter);
+    save_heavy_hitters(prev, module->reporter, module->keysize);
 
     rte_spinlock_lock(&module->lock);
     module->stats_search += pqueue_num_searches(prev);
@@ -146,8 +146,8 @@ count_array_pqueue_reset(ModulePtr module_) {
 }
 
 inline void
-count_array_pqueue_stats(ModulePtr module_, FILE *f) {
-    ModuleCountArrayPQueuePtr module = (ModuleCountArrayPQueuePtr)module_;
+heavyhitter_pqueue_stats(ModulePtr module_, FILE *f) {
+    ModuleHeavyHitterPQueuePtr module = (ModuleHeavyHitterPQueuePtr)module_;
     module->stats_search += pqueue_num_searches(module->pqueue);
     fprintf(f, "HeavyHitter::PQueue::SearchLoad\t%u\n", module->stats_search);
 }

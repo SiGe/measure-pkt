@@ -22,19 +22,19 @@
  * SOFTWARE.
  */
 
-#ifndef _COUNT_ARRAY_CUCKOO_LOCAL_H_
-#define _COUNT_ARRAY_CUCKOO_LOCAL_H_
+#ifndef _COUNT_ARRAY_HASHMAP_LINEAR_H_
+#define _COUNT_ARRAY_HASHMAP_LINEAR_H_
 
-#include "../common.h"
-#include "../experiment.h"
-#include "../module.h"
-#include "../net.h"
-#include "../reporter.h"
+#include "../../common.h"
+#include "../../experiment.h"
+#include "../../module.h"
+#include "../../net.h"
+#include "../../reporter.h"
 
-#include "../dss/hashmap_cuckoo.h"
+#include "../../dss/hashmap_linear.h"
 
 typedef uint32_t Counter;
-struct ModuleCountArrayCuckooL {
+struct ModuleHeavyHitterHashmapLinear {
     struct Module _m;
 
     uint32_t  size;
@@ -42,21 +42,22 @@ struct ModuleCountArrayCuckooL {
     unsigned  elsize;
     unsigned  socket;
 
-    uint32_t stats_search;
+    unsigned stats_search;
 
     ReporterPtr reporter;
-    HashMapCuckooPtr hashmap;
+    HashMapLinearPtr hashmap_linear;
 
-    HashMapCuckooPtr hashmap_ptr1;
-    HashMapCuckooPtr hashmap_ptr2;
+    HashMapLinearPtr hashmap_linear_ptr1;
+    HashMapLinearPtr hashmap_linear_ptr2;
 };
 
-typedef struct ModuleCountArrayCuckooL* ModuleCountArrayCuckooLPtr;
-ModulePtr count_array_cuckoo_local_init(ModuleConfigPtr params);
+typedef struct ModuleHeavyHitterHashmapLinear* ModuleHeavyHitterHashmapLinearPtr;
 
-void count_array_cuckoo_local_delete(ModulePtr);
-void count_array_cuckoo_local_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
-void count_array_cuckoo_local_reset(ModulePtr);
-void count_array_cuckoo_local_stats(ModulePtr, FILE*);
+ModulePtr heavyhitter_hashmap_linear_init(ModuleConfigPtr);
+
+void heavyhitter_hashmap_linear_delete(ModulePtr);
+void heavyhitter_hashmap_linear_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
+void heavyhitter_hashmap_linear_reset(ModulePtr);
+void heavyhitter_hashmap_linear_stats(ModulePtr, FILE *);
 
 #endif

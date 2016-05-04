@@ -22,19 +22,19 @@
  * SOFTWARE.
  */
 
-#ifndef _COUNT_ARRAY_HASHMAP_H_
-#define _COUNT_ARRAY_HASHMAP_H_
+#ifndef _COUNT_ARRAY_HASHMAP_LINEAR_PTR_H_
+#define _COUNT_ARRAY_HASHMAP_LINEAR_PTR_H_
 
-#include "../common.h"
-#include "../experiment.h"
-#include "../module.h"
-#include "../net.h"
-#include "../reporter.h"
+#include "../../common.h"
+#include "../../experiment.h"
+#include "../../module.h"
+#include "../../net.h"
+#include "../../reporter.h"
 
-#include "../dss/hashmap.h"
+#include "../../dss/hashmap_linear.h"
 
 typedef uint32_t Counter;
-struct ModuleCountArrayHashmap {
+struct ModuleHeavyHitterHashmapLinearPtr {
     struct Module _m;
 
     uint32_t  size;
@@ -45,19 +45,26 @@ struct ModuleCountArrayHashmap {
     unsigned stats_search;
 
     ReporterPtr reporter;
-    HashMapPtr hashmap;
+    HashMapLinearPtr hashmap_linear;
 
-    HashMapPtr hashmap_ptr1;
-    HashMapPtr hashmap_ptr2;
+    HashMapLinearPtr hashmap_linear_ptr1;
+    HashMapLinearPtr hashmap_linear_ptr2;
+
+    uint8_t *values;
+
+    uint8_t *vals1;
+    uint8_t *vals2;
+
+    uint32_t index;
 };
 
-typedef struct ModuleCountArrayHashmap* ModuleCountArrayHashmapPtr;
+typedef struct ModuleHeavyHitterHashmapLinearPtr* ModuleHeavyHitterHashmapLinearPPtr;
 
-ModulePtr count_array_hashmap_init(ModuleConfigPtr);
+ModulePtr heavyhitter_hashmap_linear_ptr_init(ModuleConfigPtr);
 
-void count_array_hashmap_delete(ModulePtr);
-void count_array_hashmap_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
-void count_array_hashmap_reset(ModulePtr);
-void count_array_hashmap_stats(ModulePtr, FILE *f);
+void heavyhitter_hashmap_linear_ptr_delete(ModulePtr);
+void heavyhitter_hashmap_linear_ptr_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
+void heavyhitter_hashmap_linear_ptr_reset(ModulePtr);
+void heavyhitter_hashmap_linear_ptr_stats(ModulePtr, FILE *);
 
 #endif

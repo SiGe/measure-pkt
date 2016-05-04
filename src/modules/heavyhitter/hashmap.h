@@ -22,17 +22,19 @@
  * SOFTWARE.
  */
 
-#ifndef _COUNT_ARRAY_CUCKOO_H_
-#define _COUNT_ARRAY_CUCKOO_H_
+#ifndef _COUNT_ARRAY_HASHMAP_H_
+#define _COUNT_ARRAY_HASHMAP_H_
 
-#include "../common.h"
-#include "../experiment.h"
-#include "../module.h"
-#include "../net.h"
-#include "../reporter.h"
+#include "../../common.h"
+#include "../../experiment.h"
+#include "../../module.h"
+#include "../../net.h"
+#include "../../reporter.h"
+
+#include "../../dss/hashmap.h"
 
 typedef uint32_t Counter;
-struct ModuleCountArrayCuckoo {
+struct ModuleHeavyHitterHashmap {
     struct Module _m;
 
     uint32_t  size;
@@ -40,25 +42,22 @@ struct ModuleCountArrayCuckoo {
     unsigned  elsize;
     unsigned  socket;
 
-    struct rte_hash *hashmap;
-    uint8_t *counters;
+    unsigned stats_search;
 
     ReporterPtr reporter;
+    HashMapPtr hashmap;
 
-    struct rte_hash *key_buf1;
-    struct rte_hash *key_buf2;
-
-    uint8_t *val_buf1;
-    uint8_t *val_buf2;
+    HashMapPtr hashmap_ptr1;
+    HashMapPtr hashmap_ptr2;
 };
 
-typedef struct ModuleCountArrayCuckoo* ModuleCountArrayCuckooPtr;
+typedef struct ModuleHeavyHitterHashmap* ModuleHeavyHitterHashmapPtr;
 
-ModulePtr count_array_cuckoo_init(ModuleConfigPtr);
+ModulePtr heavyhitter_hashmap_init(ModuleConfigPtr);
 
-void count_array_cuckoo_delete(ModulePtr);
-void count_array_cuckoo_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
-void count_array_cuckoo_reset(ModulePtr);
-void count_array_cuckoo_stats(ModulePtr, FILE *f);
+void heavyhitter_hashmap_delete(ModulePtr);
+void heavyhitter_hashmap_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
+void heavyhitter_hashmap_reset(ModulePtr);
+void heavyhitter_hashmap_stats(ModulePtr, FILE *f);
 
 #endif

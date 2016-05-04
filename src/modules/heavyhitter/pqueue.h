@@ -22,19 +22,21 @@
  * SOFTWARE.
  */
 
-#ifndef _COUNT_ARRAY_CUCKOO_LOCAL_PTR_H_
-#define _COUNT_ARRAY_CUCKOO_LOCAL_PTR_H_
+#ifndef _COUNT_ARRAY_PQUEUE_H_
+#define _COUNT_ARRAY_PQUEUE_H_
 
-#include "../common.h"
-#include "../experiment.h"
-#include "../module.h"
-#include "../net.h"
-#include "../reporter.h"
+#include "rte_spinlock.h"
 
-#include "../dss/hashmap_cuckoo.h"
+#include "../../common.h"
+#include "../../experiment.h"
+#include "../../module.h"
+#include "../../net.h"
+#include "../../reporter.h"
+
+#include "../../dss/pqueue.h"
 
 typedef uint32_t Counter;
-struct ModuleCountArrayCuckooLP {
+struct ModuleHeavyHitterPQueue {
     struct Module _m;
 
     uint32_t  size;
@@ -42,26 +44,24 @@ struct ModuleCountArrayCuckooLP {
     unsigned  elsize;
     unsigned  socket;
 
-    uint32_t stats_search;
+    unsigned stats_search;
 
     ReporterPtr reporter;
-    HashMapCuckooPtr hashmap;
+    PriorityQueuePtr pqueue;
 
-    HashMapCuckooPtr hashmap_ptr1;
-    HashMapCuckooPtr hashmap_ptr2;
+    PriorityQueuePtr pqueue_ptr1;
+    PriorityQueuePtr pqueue_ptr2;
 
-    uint32_t index;
-    uint8_t *values;
-    uint8_t *vals1;
-    uint8_t *vals2;
+    rte_spinlock_t lock;
 };
 
-typedef struct ModuleCountArrayCuckooLP* ModuleCountArrayCuckooLPPtr;
-ModulePtr count_array_cuckoo_local_ptr_init(ModuleConfigPtr params);
+typedef struct ModuleHeavyHitterPQueue* ModuleHeavyHitterPQueuePtr;
 
-void count_array_cuckoo_local_ptr_delete(ModulePtr);
-void count_array_cuckoo_local_ptr_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
-void count_array_cuckoo_local_ptr_reset(ModulePtr);
-void count_array_cuckoo_local_ptr_stats(ModulePtr, FILE*);
+ModulePtr heavyhitter_pqueue_init(ModuleConfigPtr);
 
-#endif
+void heavyhitter_pqueue_delete(ModulePtr);
+void heavyhitter_pqueue_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
+void heavyhitter_pqueue_reset(ModulePtr);
+void heavyhitter_pqueue_stats(ModulePtr, FILE *);
+
+#endif //PQUEUE
