@@ -107,16 +107,14 @@ hash_sec(uint32_t primary_hash) {
     return (primary_hash ^ ((tag + 1) * alt_bits_xor));
 }
 
-inline static uint32_t hash_offset(
-        HashMapCuckooBucketPtr ptr, uint32_t idx) {
+inline static uint32_t
+hash_offset(HashMapCuckooBucketPtr ptr, uint32_t idx) {
     return ((idx & ptr->num_buckets) * (ptr->bucket_size) * sizeof(uint32_t));
 }
 
-inline static void print_line(void const *key) {
-    uint32_t const *ptr = (uint32_t const*)key;
-    printf("%p, %"PRIu64" -> %"PRIu64" (hash: %u)\n",
-            ptr, *(uint64_t const*)ptr, *(uint64_t const*)(ptr+3), *(ptr+2));
-
+inline static int
+is_entry_empty(HashMapCuckooBucketPtr ptr, void const *entry) {
+    return (*(((uint32_t const*)entry)+ptr->keysize) == 1);
 }
 
 inline static void* 
@@ -133,7 +131,7 @@ find_key_in_bucket(HashMapCuckooBucketPtr ptr,
             return (void*)entry;
         }
 
-        if (*(entry+keysize) == 0)
+        if (is_entry_empty(ptr, entry))
             return 0;
 
         entry += ptr->rowsize;
@@ -142,8 +140,52 @@ find_key_in_bucket(HashMapCuckooBucketPtr ptr,
     return 0;
 }
 
-inline static void *find_or_insert_key(
-        HashMapCuckooBucketPtr ptr, void const *key) {
+inline static void* 
+find_or_insert_key_in_bucket(HashMapCuckooBucketPtr ptr, 
+        void const *key, void *bucket, uint32_t hash) {
+    unsigned i = 0;
+    unsigned entries = ptr->entries_per_bucket;
+    uint32_t *entry = (uint32_t*)bucket;
+    uint16_t keysize = ptr->keysize;
+
+    for (i = 0; i < entries; ++i) {
+        rte_atomic32_inc(&ptr->stats_search);
+        if (ptr->cmp(key, entry, keysize)) {
+            return entry;
+        }
+
+        if (is_entry_empty(ptr, entry)) {
+            rte_memcpy(entry, key, ptr->keysize*4);
+            rte_memcpy(entry+1, &hash, sizeof(uint32_t));
+            return entry;
+        }
+
+        entry += ptr->rowsize;
+    }
+
+    return 0;
+}
+
+
+inline static void *
+find_empty_or_return_first(HashMapCuckooBucketPtr ptr, void *bucket) {
+    unsigned entries = ptr->entries_per_bucket;
+    uint32_t *entry = (uint32_t*)bucket;
+    unsigned i = 0;
+
+    for (i = 0; i < entries; ++i) {
+        rte_atomic32_inc(&ptr->stats_search);
+        if (is_entry_empty(ptr, entry))
+            return entry;
+
+        entry += ptr->rowsize;
+    }
+
+    return bucket;
+}
+
+inline static void *
+find_or_insert_key(HashMapCuckooBucketPtr ptr, void const *key) {
     void *ret = 0;
 
     /* Check primary and secondary table */
@@ -155,17 +197,20 @@ inline static void *find_or_insert_key(
     uint8_t *keypos_2 = &ptr->tblsec[hash_offset(ptr, hash_2)];
     rte_prefetch0(keypos_2);
 
-    if ((ret = find_key_in_bucket(ptr, key, keypos)) != 0)
+    if ((ret = find_or_insert_key_in_bucket(ptr, key, keypos, hash)) != 0)
         return ret;
 
-    if ((ret = find_key_in_bucket(ptr, key, keypos_2)) != 0)
+    if ((ret = find_or_insert_key_in_bucket(ptr, key, keypos_2, hash)) != 0)
         return ret;
 
     uint8_t i = 0;
+
+    /* If we can't find an empty space in either of the buckets, start moving
+     * stuff around */
     ret = keypos;
 
-    /* So here, we can try to move popular elements to the beginning
-     * of the hash table, but we aren't doing so right now ...
+    /* XXX: we can try to move popular elements to the beginning of the hash
+     * table, but we aren't doing so right now ...
      * 
      * Layout of each entry is:
      *
@@ -192,6 +237,7 @@ inline static void *find_or_insert_key(
         hash = (*((uint32_t*)(ptr->scratch_2 + 4* ptr->keysize)));
         hash = hash_sec(hash);
         keypos = &ptr->tblsec[hash_offset(ptr, hash)];
+        keypos = find_empty_or_return_first(ptr, keypos);
 
         rte_memcpy(ptr->scratch_1, keypos, ptr->rowsize*4);
         rte_memcpy(keypos, ptr->scratch_2, ptr->rowsize*4);
@@ -203,6 +249,7 @@ inline static void *find_or_insert_key(
 
         hash = (*((uint32_t*)(ptr->scratch_1 + 4* ptr->keysize)));
         keypos = &ptr->tblpri[hash_offset(ptr, hash)];
+        keypos = find_empty_or_return_first(ptr, keypos);
         i++;
     }while (i < HASHMAP_CUCKOO_BUCKET_MAX_TRIES);
 

@@ -115,12 +115,11 @@ dss_hash_k128_cmp_eq(const void *key1, const void *key2, uint16_t key_len) {
 
 static dss_cmp_func
 dss_cmp(uint16_t size) {
-    return dss_memcmp;
     switch (size) {
-        case 1: return dss_hash_k32_cmp_eq;
-        case 2: return dss_hash_k64_cmp_eq;
-        case 3: return dss_hash_k96_cmp_eq;
-        case 4: return dss_hash_k128_cmp_eq;
+        case 1: return dss_memcmp;
+        case 2: return dss_memcmp;
+        case 3: return dss_memcmp;
+        case 4: return dss_hash_k16_cmp_eq;
     }
     return dss_memcmp;
 }
