@@ -79,9 +79,9 @@ hashmap_cuckoo_bucket_create(uint32_t size, uint16_t keysize,
     ptr->elsize      = elsize;
     ptr->keysize     = keysize;
     ptr->rowsize     = rowsize;
-    ptr->entries_per_bucket = (RTE_CACHE_LINE_MIN_SIZE) / (ptr->rowsize);
-    ptr->bucket_size = (RTE_CACHE_LINE_MIN_SIZE);
-    ptr->num_buckets = ptr->size / ptr->bucket_size;
+    ptr->entries_per_bucket = (RTE_CACHE_LINE_MIN_SIZE) / (ptr->rowsize * sizeof(uint32_t));
+    ptr->bucket_size = (RTE_CACHE_LINE_MIN_SIZE / sizeof(uint32_t)); // Bucket size in units of 32bit integers
+    ptr->num_buckets = ptr->size / ptr->entries_per_bucket;
     ptr->cmp = dss_cmp(keysize);
 
     ptr->table = rte_zmalloc_socket(0,
