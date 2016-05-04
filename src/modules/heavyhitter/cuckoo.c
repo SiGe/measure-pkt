@@ -15,6 +15,7 @@
 #include "../../pkt.h"
 #include "../../reporter.h"
 
+#include "common.h"
 #include "cuckoo.h"
 
 inline static uint32_t
@@ -130,13 +131,12 @@ heavyhitter_cuckoo_execute(
     /* Save and report if necessary */
     for (i = 0; i < count; ++i) { 
         void *ptr = ptrs[i];
-        uint32_t *bc = (uint32_t*)(ptr); (*bc)++;
+        uint32_t *bc = (uint32_t*)(ptr);
         uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
-        if (*bc == HEAVY_HITTER_THRESHOLD) {
+
+        if (heavyhitter_copy_and_inc(bc, pkt, elsize)) {
             reporter_add_entry(reporter, pkt+26);
         }
-
-        rte_memcpy(bc+1, pkt, (elsize-1)*4);
     }
 }
 

@@ -37,7 +37,6 @@ ModulePtr heavyhitter_cuckoo_bucket_init(ModuleConfigPtr conf) {
     module->size  = size;
     module->keysize = keysize;
     module->elsize = elsize;
-    module->rowsize = keysize + elsize;
     module->socket = socket;
     module->reporter = reporter;
 
@@ -48,6 +47,11 @@ ModulePtr heavyhitter_cuckoo_bucket_init(ModuleConfigPtr conf) {
     module->vals1   = rte_zmalloc_socket(0, sizeof(uint32_t)*elsize*size, 64, socket);
     module->vals2   = rte_zmalloc_socket(0, sizeof(uint32_t)*elsize*size, 64, socket);
     module->values  = module->vals1;
+
+    module->idx1 = 0;
+    module->idx2 = 0;
+    module->index = &module->idx1;
+
 
     return (ModulePtr)module;
 }
@@ -65,7 +69,7 @@ void heavyhitter_cuckoo_bucket_delete(ModulePtr module_) {
 
 inline static void *
 heavyhitter_get_value(ModuleHeavyHitterCuckooBPtr module, uint32_t idx) {
-    return (module->values + (sizeof(uint32_t) * (idx-module->rowsize)));
+    return (module->values + (sizeof(uint32_t) * (idx-module->elsize)));
 }
 
 #define get_ipv4(mbuf) ((struct ipv4_hdr const*) \
@@ -86,7 +90,6 @@ heavyhitter_cuckoo_bucket_execute(
     void *ptrs[MAX_PKT_BURST];
     HashMapCuckooBucketPtr hashmap = module->hashmap;
     unsigned elsize = module->elsize;
-    unsigned rowsize = module->rowsize;
 
     /* Prefetch hashmap entries */
     for (i = 0; i < count; ++i) {
@@ -103,7 +106,7 @@ heavyhitter_cuckoo_bucket_execute(
         uint32_t *ptr = (uint32_t*)ptrs[i];
 
         /* Index hasn't been assigned */
-        if (*ptr == 0) { *module->index += rowsize; *ptr = *module->index; }
+        if (*ptr == 0) { *module->index += elsize; *ptr = *module->index; }
 
         uint32_t *bc = heavyhitter_get_value(module, *ptr);
         uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
@@ -137,7 +140,7 @@ heavyhitter_cuckoo_bucket_reset(ModulePtr module_) {
 
     hashmap_cuckoo_bucket_reset(prev);
     *prev_idx = 0;
-    memset(values, 0, sizeof(uint32_t) * module->rowsize * module->size);
+    memset(values, 0, sizeof(uint32_t) * module->elsize * module->size);
 }
 
 inline void

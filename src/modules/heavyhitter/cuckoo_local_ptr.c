@@ -15,6 +15,8 @@
 #include "../../reporter.h"
 
 #include "../../dss/hashmap_cuckoo.h"
+
+#include "common.h"
 #include "cuckoo_local_ptr.h"
 
 ModulePtr heavyhitter_cuckoo_local_ptr_init(ModuleConfigPtr conf) {
@@ -105,11 +107,9 @@ heavyhitter_cuckoo_local_ptr_execute(
         uint32_t *bc = (uint32_t*)(*ptr); (*bc)++;
         uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
 
-        if (*bc == HEAVY_HITTER_THRESHOLD) {
+        if (heavyhitter_copy_and_inc(bc, pkt, elsize)) {
             reporter_add_entry(reporter, pkt+26);
         }
-
-        rte_memcpy(bc+1, pkt, (elsize-1)*4);
     }
 }
 
