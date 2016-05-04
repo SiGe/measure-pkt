@@ -65,5 +65,10 @@
 #define REPORT_THRESHOLD 0x1fffff
 #define HEAVY_HITTER_THRESHOLD 2048
 
+// Cache line properties
+#ifndef RTE_CACHE_LINE_MIN_SIZE
+    #define RTE_CACHE_LINE_MIN_SIZE 64
+#endif
+
 
 #endif // _COMMON_H_

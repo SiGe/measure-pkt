@@ -8,6 +8,8 @@
 #include "rte_memcpy.h"
 #include "rte_memory.h"
 
+#include "hash.h"
+#include "memcmp.h"
 #include "hashmap_cuckoo.h"
 
 #define HASHMAP_CUCKOO_MAX_TRIES 32
@@ -19,6 +21,7 @@ struct HashMapCuckoo {
     uint16_t keysize;
     uint16_t elsize;
 
+    dss_cmp_func cmp;
     rte_atomic32_t stats_search;
 
     uint8_t *table;
@@ -71,6 +74,7 @@ hashmap_cuckoo_create(uint32_t size, uint16_t keysize,
 
     ptr->table = rte_zmalloc_socket(0,
             hashmap_cuckoo_total_size(ptr), 64, socket);
+    ptr->cmp = dss_cmp(keysize);
 
     ptr->tblpri = ptr->table;
     ptr->tblsec = ptr->table + hashmap_cuckoo_total_size(ptr) / 2;
@@ -79,13 +83,6 @@ hashmap_cuckoo_create(uint32_t size, uint16_t keysize,
     ptr->scratch_2 = ptr->end + ptr->rowsize * 4;
 
     return ptr;
-}
-
-inline static uint32_t hash_key(
-        HashMapCuckooPtr ptr, void const *key)  {
-    uint32_t hash;
-    MurmurHash3_x86_32(key, ptr->keysize * 4, 1, &hash);
-    return hash;
 }
 
 /* Taken from rte_hash library */
@@ -107,7 +104,7 @@ inline static uint32_t hash_offset(
 inline static void *find_key(
         HashMapCuckooPtr ptr, void const *key) {
     /* Check primary and secondary table */
-    uint32_t hash = hash_key(ptr, key);
+    uint32_t hash = dss_hash(key, ptr->keysize);
     uint8_t *keypos = &ptr->tblpri[hash_offset(ptr, hash)];
     rte_prefetch0(keypos);
 
@@ -115,10 +112,10 @@ inline static void *find_key(
     uint8_t *keypos_2 = &ptr->tblsec[hash_offset(ptr, hash_2)];
     rte_prefetch0(keypos_2);
 
-    if (memcmp(keypos, key, ptr->keysize * 4) == 0)
+    if (ptr->cmp(keypos, key, ptr->keysize) == 0)
         return keypos;
 
-    if (memcmp(keypos_2, key, ptr->keysize * 4) == 0)
+    if (ptr->cmp(keypos_2, key, ptr->keysize) == 0)
         return keypos_2;
 
     return 0;
@@ -134,7 +131,7 @@ inline static void print_line(void const *key) {
 inline static void *find_or_insert_key(
         HashMapCuckooPtr ptr, void const *key) {
     /* Check primary and secondary table */
-    uint32_t hash = hash_key(ptr, key);
+    uint32_t hash = dss_hash(key, ptr->keysize);
     uint8_t *keypos = &ptr->tblpri[hash_offset(ptr, hash)];
     rte_prefetch0(keypos);
 
@@ -143,11 +140,11 @@ inline static void *find_or_insert_key(
     rte_prefetch0(keypos_2);
 
     rte_atomic32_inc(&ptr->stats_search);
-    if (memcmp(keypos, key, ptr->keysize * 4) == 0)
+    if (ptr->cmp(keypos, key, ptr->keysize) == 0)
         return keypos;
 
     rte_atomic32_inc(&ptr->stats_search);
-    if (memcmp(keypos_2, key, ptr->keysize * 4) == 0)
+    if (ptr->cmp(keypos_2, key, ptr->keysize) == 0)
         return keypos_2;
 
     uint8_t i = 0;
@@ -160,7 +157,7 @@ inline static void *find_or_insert_key(
     do {
         rte_memcpy(ptr->scratch_2, keypos, ptr->rowsize*4);
         rte_memcpy(keypos, ptr->scratch_1, ptr->rowsize*4);
-        if (memcmp(keypos, key, ptr->keysize) == 0) ret = keypos;
+        if (ptr->cmp(keypos, key, ptr->keysize) == 0) ret = keypos;
         rte_atomic32_inc(&ptr->stats_search);
         if (*((uint32_t*)(ptr->scratch_2)) == 0) {
             return ret;
@@ -173,7 +170,7 @@ inline static void *find_or_insert_key(
 
         rte_memcpy(ptr->scratch_1, keypos, ptr->rowsize*4);
         rte_memcpy(keypos, ptr->scratch_2, ptr->rowsize*4);
-        if (memcmp(keypos, key, ptr->keysize) == 0) ret = keypos;
+        if (ptr->cmp(keypos, key, ptr->keysize) == 0) ret = keypos;
         rte_atomic32_inc(&ptr->stats_search);
         if (*((uint32_t*)(ptr->scratch_1)) == 0) {
             return ret;

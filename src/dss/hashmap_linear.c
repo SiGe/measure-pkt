@@ -5,6 +5,8 @@
 #include "rte_malloc.h"
 #include "rte_memcpy.h"
 
+#include "hash.h"
+#include "memcmp.h"
 #include "hashmap_linear.h"
 
 struct HashMapLinear {
@@ -13,6 +15,8 @@ struct HashMapLinear {
     uint16_t rowsize;
     uint16_t keysize;
     uint16_t elsize;
+
+    dss_cmp_func cmp;
     rte_atomic32_t stats_search;
 
     uint32_t *eot;
@@ -43,6 +47,7 @@ hashmap_linear_create(uint32_t size, uint16_t keysize,
     ptr->keysize = keysize;
     ptr->rowsize = ptr->elsize + ptr->keysize;
     ptr->eot = ptr->table + (ptr->rowsize * ptr->size);
+    ptr->cmp = dss_cmp(keysize);
     rte_atomic32_inc(&ptr->stats_search);
 
     return ptr;
@@ -54,7 +59,7 @@ find_key(HashMapLinearPtr ptr, void const *key, void *ret) {
     rte_atomic32_inc(&ptr->stats_search);
     while (1) {
         if (*init == 0) return init;
-        if (memcmp(init, key, ptr->keysize * 4) == 0) return init;
+        if (ptr->cmp(init, key, ptr->keysize) == 0) return init;
         init = init + ptr->rowsize;
         rte_atomic32_inc(&ptr->stats_search);
         if (init > ptr->eot) init = (uint32_t *)ptr->table;
@@ -67,7 +72,7 @@ find_and_copy_key(HashMapLinearPtr ptr, void const *key, void *ret) {
     rte_atomic32_inc(&ptr->stats_search);
     while (1) {
         if (*init == 0) { rte_memcpy(init, key, ptr->keysize * 4); return init; };
-        if (memcmp(init, key, ptr->keysize * 4) == 0) return init;
+        if (ptr->cmp(init, key, ptr->keysize) == 0) return init;
         init = init + ptr->rowsize;
         rte_atomic32_inc(&ptr->stats_search);
         if (init > ptr->eot) init = (uint32_t *)ptr->table;
@@ -76,8 +81,7 @@ find_and_copy_key(HashMapLinearPtr ptr, void const *key, void *ret) {
 
 inline void *
 hashmap_linear_get_copy_key(HashMapLinearPtr ptr, void const *key) {
-    uint32_t hash = 0;
-    MurmurHash3_x86_32(key, ptr->keysize * 4, 1, &hash);
+    uint32_t hash = dss_hash(key, ptr->keysize);
     uint32_t *ret = (((uint32_t*)ptr->table) + /* Base addr */
             (hash & ptr->size) * (ptr->rowsize)); /* Index */
     ptr->count++;
@@ -88,8 +92,7 @@ hashmap_linear_get_copy_key(HashMapLinearPtr ptr, void const *key) {
 
 inline void *
 hashmap_linear_get_nocopy_key(HashMapLinearPtr ptr, void const *key) {
-    uint32_t hash = 0;
-    MurmurHash3_x86_32(key, ptr->keysize * 4, 1, &hash);
+    uint32_t hash = dss_hash(key, ptr->keysize);
     uint32_t *ret = (((uint32_t*)ptr->table) + /* Base addr */
             (hash & ptr->size) * (ptr->rowsize)); /* Index */
     ptr->count++;

@@ -5,6 +5,7 @@
 #include "rte_malloc.h"
 #include "rte_memcpy.h"
 
+#include "hash.h"
 #include "hashmap.h"
 
 struct HashMap {
@@ -48,8 +49,7 @@ hashmap_create(uint32_t size, uint16_t keysize,
 
 inline void *
 hashmap_get_copy_key(HashMapPtr ptr, void const *key) {
-    uint32_t hash = 0;
-    MurmurHash3_x86_32(key, ptr->keysize * 4, 1, &hash);
+    uint32_t hash = dss_hash(key, ptr->keysize);
     uint32_t *ret = (((uint32_t*)ptr->table) + /* Base addr */
             (hash & ptr->size) * (ptr->rowsize)); /* Index */
     rte_memcpy(ret, key, ptr->keysize*4);
@@ -60,8 +60,7 @@ hashmap_get_copy_key(HashMapPtr ptr, void const *key) {
 
 inline void *
 hashmap_get_nocopy_key(HashMapPtr ptr, void const *key) {
-    uint32_t hash = 0;
-    MurmurHash3_x86_32(key, ptr->keysize * 4, 1, &hash);
+    uint32_t hash = dss_hash(key, ptr->keysize);
     uint32_t *ret = (((uint32_t*)ptr->table) + /* Base addr */
             (hash & ptr->size) * (ptr->rowsize)); /* Index */
     ptr->count++;
