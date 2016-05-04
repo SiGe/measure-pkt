@@ -63,6 +63,7 @@ SRCS-y := \
 	src/modules/ring.c \
 	src/modules/consumer.c \
 	src/modules/heavyhitter/cuckoo.c \
+	src/modules/heavyhitter/cuckoo_bucket.c \
 	src/modules/heavyhitter/cuckoo_local.c \
 	src/modules/heavyhitter/cuckoo_local_ptr.c \
 	src/modules/heavyhitter/hashmap.c \
