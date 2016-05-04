@@ -46,6 +46,7 @@ SRCS-y := \
 	src/dss/hashmap.c \
 	src/dss/hashmap_linear.c \
 	src/dss/hashmap_cuckoo.c \
+	src/dss/hashmap_cuckoo_bucket.c \
 	src/dss/pqueue.c \
 	src/bootstrap.c \
 	src/console.c \
@@ -69,7 +70,6 @@ SRCS-y := \
 	src/modules/heavyhitter/hashmap_linear_ptr.c \
 	src/modules/heavyhitter/pqueue.c \
 	src/tests/test.c \
-#	src/dss/hashmap_cuckoo_bucket.c \
 	
 
 CFLAGS += -O3 -g# -march=native
