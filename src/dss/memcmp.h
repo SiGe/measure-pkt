@@ -38,7 +38,7 @@ typedef int (*dss_cmp_func)(void const *, void const *, uint16_t);
 
 static inline int 
 dss_memcmp(void const *c1, void const *c2, uint16_t size) {
-    return memcmp(c1, c2, size);
+    return memcmp(c1, c2, size*4);
 }
 
 
@@ -115,6 +115,7 @@ dss_hash_k128_cmp_eq(const void *key1, const void *key2, uint16_t key_len) {
 
 static dss_cmp_func
 dss_cmp(uint16_t size) {
+    return dss_memcmp;
     switch (size) {
         case 1: return dss_hash_k32_cmp_eq;
         case 2: return dss_hash_k64_cmp_eq;
