@@ -35,6 +35,14 @@
 
 #include "../../dss/pqueue.h"
 
+/*
+ * Heavyhitter detection with priority queues
+ *
+ * Keys and values are kept together ... performance is abysmal due to multiple
+ * accesses that heap can incur.  If the data-structure is needed, need to use
+ * this smartly.
+ *
+ */
 typedef uint32_t Counter;
 struct ModuleHeavyHitterPQueue {
     struct Module _m;

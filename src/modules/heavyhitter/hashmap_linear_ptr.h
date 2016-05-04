@@ -33,6 +33,14 @@
 
 #include "../../dss/hashmap_linear.h"
 
+/*
+ * Heavyhitter detection with a linear hash map
+ *
+ * This linear hash map implementation keeps keys and values separately, so the
+ * 99th percentile performance is less affected by the separation of keys and
+ * values.
+ *
+ */
 typedef uint32_t Counter;
 struct ModuleHeavyHitterHashmapLinearPtr {
     struct Module _m;

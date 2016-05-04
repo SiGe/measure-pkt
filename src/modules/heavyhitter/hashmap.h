@@ -33,6 +33,14 @@
 
 #include "../../dss/hashmap.h"
 
+/*
+ * Heavyhitter detection with a lossy count array implementation
+ *
+ * The keys and values are saved sequentially, saving them separately does not
+ * improve the performance as there is only a single memory access -- we accept
+ * losses.
+ *
+ */
 typedef uint32_t Counter;
 struct ModuleHeavyHitterHashmap {
     struct Module _m;

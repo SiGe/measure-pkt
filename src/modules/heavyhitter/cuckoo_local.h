@@ -33,6 +33,14 @@
 
 #include "../../dss/hashmap_cuckoo.h"
 
+/*
+ * Heavyhitter detection with a local implementation of Cuckoo hashing
+ *
+ * The keys and values are saved sequentially after each other.  There is
+ * no bucketing with this implementation, so the performance is limited by
+ * the access pattern, which is mostly random due to hash functions.
+ *
+ */
 typedef uint32_t Counter;
 struct ModuleHeavyHitterCuckooL {
     struct Module _m;

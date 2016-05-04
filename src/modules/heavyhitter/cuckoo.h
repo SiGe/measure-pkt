@@ -31,6 +31,13 @@
 #include "../../net.h"
 #include "../../reporter.h"
 
+/*
+ * Heavyhitter detection with rte_hash
+ *
+ * This implementation uses rte_hash that comes with DPDK paired with 
+ * a contiguous block of memory.
+ *
+ */
 typedef uint32_t Counter;
 struct ModuleHeavyHitterCuckoo {
     struct Module _m;

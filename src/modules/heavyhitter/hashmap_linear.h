@@ -33,6 +33,14 @@
 
 #include "../../dss/hashmap_linear.h"
 
+/*
+ * Heavyhitter detection with a linear hash map
+ *
+ * The linear hash map implementation keeps keys and values together so as the
+ * values become larger the performance drops dramatically as the locality
+ * decreases.
+ *
+ */
 typedef uint32_t Counter;
 struct ModuleHeavyHitterHashmapLinear {
     struct Module _m;
