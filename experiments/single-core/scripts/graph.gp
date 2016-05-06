@@ -31,6 +31,7 @@ set style line 4 lt rgb "#F25900" lw 2 pt 9
 set style line 5 lt rgb "#5F209B" lw 2 pt 4
 
 set output "graph.pdf"
+set key samplen 2 spacing 0.75 font ",8"
 # Get the directory of the benchmark
 set xlabel "99th percentile (cycles)"
 set ylabel "Precision"

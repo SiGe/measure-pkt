@@ -31,4 +31,11 @@ set style line 4 lt rgb "#F25900" lw 2 pt 9
 set style line 5 lt rgb "#5F209B" lw 2 pt 4
 
 set output "graph.pdf"
-set key samplen 2 spacing 0.75 font ",8"
+# Get the directory of the benchmark
+set xlabel "Cache size"
+set ylabel "Average (cycles)"
+set key outside horizontal bottom center 
+set mxtics 10
+# set yrange [10:100]
+set logscale x
+plot 'Cuckoo-1.1-tmp.csv' using ($18/(1)):($7/(1))            title 'Cuckoo-1.1' w lp ls 2,'CuckooBucket-1.1-tmp.csv' using ($18/(1)):($7/(1))            title 'CuckooBucket-1.1' w lp ls 5,'Linear-1.1-tmp.csv' using ($18/(1)):($7/(1))            title 'Linear-1.1' w lp ls 4,'Simple-1.1-tmp.csv' using ($18/(1)):($7/(1))            title 'Simple-1.1' w lp ls 5,
