@@ -10,6 +10,8 @@
 #include "modules/heavyhitter/hashmap_linear_ptr.h"
 #include "modules/heavyhitter/pqueue.h"
 
+#include "modules/randmod.h"
+
 void boostrap_register_modules(void) {
     REGISTER_MODULE("HeavyHitter::Cuckoo",                  heavyhitter_cuckoo);
     REGISTER_MODULE("HeavyHitter::CuckooBucket",            heavyhitter_cuckoo_bucket);
@@ -19,4 +21,6 @@ void boostrap_register_modules(void) {
     REGISTER_MODULE("HeavyHitter::HashmapLinear",           heavyhitter_hashmap_linear);
     REGISTER_MODULE("HeavyHitter::HashmapLinearPointer",    heavyhitter_hashmap_linear_ptr);
     REGISTER_MODULE("HeavyHitter::PQueue",                  heavyhitter_pqueue);
+
+    REGISTER_MODULE("Generic::RandMod",                     randmod);
 }
