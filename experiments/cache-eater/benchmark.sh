@@ -131,27 +131,40 @@ BuildL2fwd
 # starts at 0x40.
 
 # Experiment to show that the pqueue hash table starts to suck
-for eaterSize in 4 8 16 32; do
+for eaterSize in 1 2 4 8 16 32 64 128 256 512 1024 2048; do
     for eaterMask in "0x80"; do
-        for dist in 0.75 1.1 1.25 1.5; do
-            RunBenchmark "$bashDir/01-hh-hm-pqueue.yaml" "65536 131072 262144 524288" "3" 300 $dist $eaterSize $eaterMask
-            RunBenchmark "$bashDir/01-hh-hm-simple.yaml" "262144 524288 1048576 2097152 4194304 8388608" "3" 100 $dist $eaterSize $eaterMask
-            RunBenchmark "$bashDir/01-hh-hm-linear.yaml" "262144 524288 1048576 2097152 4194304 8388608" "3" 100 $dist $eaterSize $eaterMask
-            RunBenchmark "$bashDir/01-hh-hm-cuckoo-local.yaml" "131072 262144 524288 1048576 2097152 4194304" "3" 100 $dist $eaterSize $eaterMask
-            RunBenchmark "$bashDir/01-hh-hm-cuckoo-bucket.yaml" "131072 262144 524288 1048576 2097152 4194304" "3" 100 $dist $eaterSize $eaterMask
+        #for dist in 0.75 1.1 1.25 1.5; do
+        for dist in 1.1; do
+            RunBenchmark "$bashDir/01-hh-hm-pqueue.yaml" "262144" "3" 300 $dist $eaterSize $eaterMask
+            RunBenchmark "$bashDir/01-hh-hm-simple.yaml" "2097152" "3" 100 $dist $eaterSize $eaterMask
+            #RunBenchmark "$bashDir/01-hh-hm-simple.yaml" "262144 524288 1048576 2097152 4194304 8388608" "3" 100 $dist $eaterSize $eaterMask
+            #RunBenchmark "$bashDir/01-hh-hm-linear.yaml" "262144 524288 1048576 2097152 4194304 8388608" "3" 100 $dist $eaterSize $eaterMask
+            RunBenchmark "$bashDir/01-hh-hm-linear.yaml" "2097152" "3" 100 $dist $eaterSize $eaterMask
+            #RunBenchmark "$bashDir/01-hh-hm-cuckoo-local.yaml" "131072 262144 524288 1048576 2097152 4194304" "3" 100 $dist $eaterSize $eaterMask
+            RunBenchmark "$bashDir/01-hh-hm-cuckoo-local.yaml" "1048576" "3" 100 $dist $eaterSize $eaterMask
+            #RunBenchmark "$bashDir/01-hh-hm-cuckoo-bucket.yaml" "131072 262144 524288 1048576 2097152 4194304" "3" 100 $dist $eaterSize $eaterMask
+            RunBenchmark "$bashDir/01-hh-hm-cuckoo-bucket.yaml" "1048576" "3" 100 $dist $eaterSize $eaterMask
         done
     done
 done
 
-for eaterSize in 32; do
-    for eaterMask in 0x80 0x280 0xA80; do
+for eaterSize in 64; do
+    for eaterMask in 0x80 0x280 0xA80 0x2A80 0xAA80 0x2AA80 0xAAA80; do
         for dist in 1.1; do
-            RunBenchmark "$bashDir/01-hh-hm-simple.yaml" "262144 524288 1048576 2097152 4194304 8388608" "12" 100 $dist $eaterSize $eaterMask
-            RunBenchmark "$bashDir/01-hh-hm-linear.yaml" "262144 524288 1048576 2097152 4194304 8388608" "12" 100 $dist $eaterSize $eaterMask
-            RunBenchmark "$bashDir/01-hh-hm-linear-ptr.yaml" "262144 524288 1048576 2097152 4194304 8388608" "12" 100 $dist $eaterSize $eaterMask
-            RunBenchmark "$bashDir/01-hh-hm-cuckoo-bucket.yaml" "131072 262144 524288 1048576 2097152 4194304" "12" 100 $dist $eaterSize $eaterMask
-            RunBenchmark "$bashDir/01-hh-hm-cuckoo-local.yaml" "131072 262144 524288 1048576 2097152 4194304" "12" 100 $dist $eaterSize $eaterMask
-            RunBenchmark "$bashDir/01-hh-hm-cuckoo-ptr" "131072 262144 524288 1048576 2097152 4194304" "12" 100 $dist $eaterSize $eaterMask
+            RunBenchmark "$bashDir/01-hh-hm-simple.yaml" "2097152" "3" 100 $dist $eaterSize $eaterMask
+            RunBenchmark "$bashDir/01-hh-hm-linear.yaml" "2097152" "3" 100 $dist $eaterSize $eaterMask
+            RunBenchmark "$bashDir/01-hh-hm-linear-ptr.yaml" "2097152" "3" 100 $dist $eaterSize $eaterMask
+            RunBenchmark "$bashDir/01-hh-hm-cuckoo-bucket.yaml" "1048576" "3" 100 $dist $eaterSize $eaterMask
+            RunBenchmark "$bashDir/01-hh-hm-cuckoo-local.yaml" "1048576" "3" 100 $dist $eaterSize $eaterMask
+            RunBenchmark "$bashDir/01-hh-hm-cuckoo-ptr.yaml" "1048576" "3" 100 $dist $eaterSize $eaterMask
+            RunBenchmark "$bashDir/01-hh-hm-pqueue.yaml" "262144" "3" 300 $dist $eaterSize $eaterMask
+
+            # RunBenchmark "$bashDir/01-hh-hm-simple.yaml" "262144 524288 1048576 2097152 4194304 8388608" "12" 100 $dist $eaterSize $eaterMask
+            # RunBenchmark "$bashDir/01-hh-hm-linear.yaml" "262144 524288 1048576 2097152 4194304 8388608" "12" 100 $dist $eaterSize $eaterMask
+            # RunBenchmark "$bashDir/01-hh-hm-linear-ptr.yaml" "262144 524288 1048576 2097152 4194304 8388608" "12" 100 $dist $eaterSize $eaterMask
+            # RunBenchmark "$bashDir/01-hh-hm-cuckoo-bucket.yaml" "131072 262144 524288 1048576 2097152 4194304" "12" 100 $dist $eaterSize $eaterMask
+            # RunBenchmark "$bashDir/01-hh-hm-cuckoo-local.yaml" "131072 262144 524288 1048576 2097152 4194304" "12" 100 $dist $eaterSize $eaterMask
+            # RunBenchmark "$bashDir/01-hh-hm-cuckoo-ptr" "131072 262144 524288 1048576 2097152 4194304" "12" 100 $dist $eaterSize $eaterMask
         done
     done
 done

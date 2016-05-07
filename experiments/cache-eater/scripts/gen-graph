@@ -373,7 +373,7 @@ EOF
 _experimentCacheSizeCycles() {
     # Available dist: 0.75 1.1 1.5
     for dist in 1.1; do
-        for cacheSize in 4 8 16 32; do
+        for cacheSize in 1 2 4 8 16 32 64 128 256 512 1024 2048; do
             for size in 2097152; do
                 _statsForExp "Simple" $dist $size 3 $cacheSize 0x80
             done

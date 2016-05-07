@@ -37,28 +37,33 @@ set style line 7 lt rgb "#979281" lw 2 pt 7
 set style line 8 lt rgb "#D55258" lw 2 pt 5
 
 set key samplen 2 font ",8"
-set key inside vertical bottom right
+set key inside vertical top left
 set logscale x
 
+set ylabel "Latency (cycles)" offset 1,0,0
+set xlabel "MB" offset 0,1,0
 # Get the directory of the benchmark
 set output "simple-cyc.pdf"
 plot \
-     'Simple-0.5-tmp.csv' using ($2/(1024*1024)):7  title 'Simple (Z=0.5)' w lp ls 1,\
-     'Simple-0.5-tmp.csv' using ($2/(1024*1024)):10 notitle w errorbars ls 1 lw 1,\
-     'Simple-1.1-tmp.csv' using ($2/(1024*1024)):7  title 'Simple (Z=1.1)' w lp ls 2,\
-     'Simple-1.1-tmp.csv' using ($2/(1024*1024)):10 notitle w errorbars ls 2 lw 1,\
-     'Simple-1.5-tmp.csv' using ($2/(1024*1024)):7  title 'Simple (Z=1.5)' w lp ls 3,\
-     'Simple-1.5-tmp.csv' using ($2/(1024*1024)):10 notitle w errorbars ls 3 lw 1
+     'Simple-0.5-tmp.csv' using ($2/(1024*1024)):7  title 'Count array (Z=0.5)' w lp ls 1,\
+     'Simple-0.5-tmp.csv' using ($2/(1024*1024)):7:10:7 notitle w errorbars ls 1 lw 1,\
+     'Simple-1.1-tmp.csv' using ($2/(1024*1024)):7  title 'Count array (Z=1.1)' w lp ls 2,\
+     'Simple-1.1-tmp.csv' using ($2/(1024*1024)):7:10:7 notitle w errorbars ls 2 lw 1,\
+     'Simple-1.5-tmp.csv' using ($2/(1024*1024)):7  title 'Count array (Z=1.5)' w lp ls 3,\
+     'Simple-1.5-tmp.csv' using ($2/(1024*1024)):7:10:7 notitle w errorbars ls 3 lw 1
 
+set ylabel "Precision" offset 2,0,0
+set xlabel "MB"
+set key inside vertical bottom right
 set output "simple-pre.pdf"
-plot 'Simple-0.5-tmp.csv' using ($2/(1024*1024)):($5/(1)) title 'Simple (Z=0.5)' w lp ls 1,\
-     'Simple-1.1-tmp.csv' using ($2/(1024*1024)):($5/(1)) title 'Simple (Z=1.1)' w lp ls 2,\
-     'Simple-1.5-tmp.csv' using ($2/(1024*1024)):($5/(1)) title 'Simple (Z=1.5)' w lp ls 3
+plot 'Simple-0.5-tmp.csv' using ($2/(1024*1024)):($5/(1)) title 'Count array (Z=0.5)' w lp ls 1,\
+     'Simple-1.1-tmp.csv' using ($2/(1024*1024)):($5/(1)) title 'Count array (Z=1.1)' w lp ls 2,\
+     'Simple-1.5-tmp.csv' using ($2/(1024*1024)):($5/(1)) title 'Count array (Z=1.5)' w lp ls 3
 
 unset logscale x
-set ylabel "Precision"
-set xlabel "99th percentile (cycles)"
+set ylabel "Precision" offset 2,0,0
+set xlabel "99th percentile (cycles)" offset 0,0,0
 set output "simple-both.pdf"
-plot 'Simple-0.5-tmp.csv' using ($10/(1)):5 title 'Simple (Z=0.5)' w lp ls 1,\
-     'Simple-1.1-tmp.csv' using ($10/(1)):5 title 'Simple (Z=1.1)' w lp ls 2,\
-     'Simple-1.5-tmp.csv' using ($10/(1)):5 title 'Simple (Z=1.5)' w lp ls 3
+plot 'Simple-0.5-tmp.csv' using ($10/(1)):5 title 'Count array (Z=0.5)' w lp ls 1,\
+     'Simple-1.1-tmp.csv' using ($10/(1)):5 title 'Count array (Z=1.1)' w lp ls 2,\
+     'Simple-1.5-tmp.csv' using ($10/(1)):5 title 'Count array (Z=1.5)' w lp ls 3

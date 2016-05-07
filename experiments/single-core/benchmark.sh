@@ -57,9 +57,10 @@ RunBenchmark() {
                 sleep 2
 
                 echo "> Running: remote traffic."
+                echo "ssh omid@mm -- ~/measure-pkt-d1-to-d1/run.sh $trafficDist $speed 27263000 >/dev/null 2>&1"
                 ssh omid@mm -- ~/measure-pkt-d1-to-d1/run.sh $trafficDist $speed 27263000 >/dev/null 2>&1
                 sudo killall -s INT measurement-benchmark
-                sleep 2
+                sleep 10
                 mv $buildDir/*log $expDir/
                 sleep 5
             done
@@ -79,8 +80,16 @@ for dist in 0.75 1.1 1.25 1.5; do
     RunBenchmark "$bashDir/01-hh-hm-cuckoo-bucket.yaml" "131072 262144 524288 1048576 2097152 4194304" "3" 100 $dist
 done
 
+for dist in def; do
+    RunBenchmark "$bashDir/01-hh-hm-pqueue.yaml" "1024 2048 4096 8192 16384 32768 65536 131072 262144 524288" "3" 300 $dist
+    RunBenchmark "$bashDir/01-hh-hm-simple.yaml" "16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608" "3" 100 $dist
+    RunBenchmark "$bashDir/01-hh-hm-linear.yaml" "131072 262144 524288 1048576 2097152 4194304 8388608" "3" 100 $dist
+    RunBenchmark "$bashDir/01-hh-hm-cuckoo-local.yaml" "131072 262144 524288 1048576 2097152 4194304" "3" 100 $dist
+    RunBenchmark "$bashDir/01-hh-hm-cuckoo-bucket.yaml" "131072 262144 524288 1048576 2097152 4194304" "3" 100 $dist
+done
+
 # Experiment to show the accuracy of the simple-count-array -- it's pretty accurate
-for dist in 0.5 1.1 1.5; do
+for dist in 0.5 1.1 1.5 def; do
     RunBenchmark "$bashDir/01-hh-hm-simple.yaml" "2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608" "3" 100 $dist
 done
 

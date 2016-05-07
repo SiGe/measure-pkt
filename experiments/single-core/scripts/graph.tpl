@@ -29,6 +29,9 @@ set style line 2 lt rgb "#00A000" lw 2 pt 6
 set style line 3 lt rgb "#5060D0" lw 2 pt 2
 set style line 4 lt rgb "#F25900" lw 2 pt 9
 set style line 5 lt rgb "#5F209B" lw 2 pt 4
+set style line 6 lt rgb "#3D98AA" lw 2 pt 3
+set style line 7 lt rgb "#979281" lw 2 pt 7
+set style line 8 lt rgb "#D55258" lw 2 pt 5
 
 set output "graph.pdf"
 set key samplen 2 spacing 0.75 font ",8"
