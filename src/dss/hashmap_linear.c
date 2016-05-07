@@ -7,6 +7,7 @@
 
 #include "hash.h"
 #include "memcmp.h"
+
 #include "hashmap_linear.h"
 
 struct HashMapLinear {
@@ -48,7 +49,6 @@ hashmap_linear_create(uint32_t size, uint16_t keysize,
     ptr->rowsize = ptr->elsize + ptr->keysize;
     ptr->eot = ptr->table + (ptr->rowsize * ptr->size);
     ptr->cmp = dss_cmp(keysize);
-    rte_atomic32_inc(&ptr->stats_search);
 
     return ptr;
 }

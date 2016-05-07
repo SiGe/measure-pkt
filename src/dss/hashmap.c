@@ -6,6 +6,8 @@
 #include "rte_memcpy.h"
 
 #include "hash.h"
+#include "memcmp.h"
+
 #include "hashmap.h"
 
 struct HashMap {
@@ -15,6 +17,7 @@ struct HashMap {
     uint16_t keysize;
     uint16_t elsize;
 
+    dss_cmp_func cmp;
     rte_atomic32_t stats_search;
 
     int table[];
@@ -42,6 +45,7 @@ hashmap_create(uint32_t size, uint16_t keysize,
     ptr->count = 0;
     ptr->elsize = elsize;
     ptr->keysize = keysize;
+    ptr->cmp = dss_cmp(keysize);
     ptr->rowsize = ptr->elsize + ptr->keysize;
 
     return ptr;
@@ -53,7 +57,6 @@ hashmap_get_copy_key(HashMapPtr ptr, void const *key) {
     uint32_t *ret = (((uint32_t*)ptr->table) + /* Base addr */
             (hash & ptr->size) * (ptr->rowsize)); /* Index */
     rte_memcpy(ret, key, ptr->keysize*4);
-    ptr->count++;
     rte_atomic32_inc(&ptr->stats_search);
     return (ret + ptr->keysize);
 }

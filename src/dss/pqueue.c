@@ -78,7 +78,7 @@ static inline unsigned pq_size(unsigned size) {
 
 static inline uint32_t
 pq_hash_entries(unsigned size) {
-    return size * 16;
+    return size * 8;
 }
 
 static inline void
@@ -150,11 +150,11 @@ void *pqueue_get_copy_key(PriorityQueuePtr pq, void const *key, pqueue_index_t *
     if (is_new_node && pq->last_index >= pq->size) {
         /* Remove the first element from the heap and add the new key */
         void *q = pqueue_get_heap(pq, 0);
+        rte_hash_del_key(pq->hashmap, q);
         rte_memcpy(ret, q, (pq->elsize+pqn_size)*sizeof(uint32_t));
         pqueue_set_heap(pq, 0, ret);
         is_new_node = 0;
     }
-
 
     /* branch-less implementation */
     /* Set the PQueue node properties */

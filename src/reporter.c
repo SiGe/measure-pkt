@@ -27,6 +27,7 @@ ReporterPtr reporter_init( unsigned size, unsigned rowsize, unsigned socket, cha
 
 inline void
 reporter_add_entry(ReporterPtr rep, void const *entry) {
+    if (rep->idx >= rep->size) return;
     rte_memcpy(rep->active + (rep->rowsize * rep->idx), entry, rep->rowsize);
     rep->idx++;
 }

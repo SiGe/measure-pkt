@@ -105,7 +105,7 @@ heavyhitter_pqueue_execute(
         uint32_t *bc = (uint32_t*)(ptr);
         rte_memcpy(bc, pkt+26, sizeof(uint32_t) * keysize);
         bc += keysize; (*bc)++;
-        rte_memcpy((bc + keysize + 1), pkt, (elsize-keysize-1)*4);
+        rte_memcpy((bc + 1), pkt, (elsize-keysize-1)*4);
         pqueue_heapify_index(module->pqueue, idx);
     }
 
