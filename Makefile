@@ -66,6 +66,7 @@ SRCS-y := \
 	src/modules/super_spreader.c \
 	src/modules/ring.c \
 	src/modules/consumer.c \
+	src/modules/randmod.c \
 	src/modules/heavyhitter/cuckoo.c \
 	src/modules/heavyhitter/cuckoo_bucket.c \
 	src/modules/heavyhitter/cuckoo_local.c \
