@@ -135,13 +135,13 @@ inline static void *find_or_insert_key(
     uint8_t *keypos = &ptr->tblpri[hash_offset(ptr, hash)];
     rte_prefetch0(keypos);
 
-    uint32_t hash_2 = hash_sec(hash);
-    uint8_t *keypos_2 = &ptr->tblsec[hash_offset(ptr, hash_2)];
-    rte_prefetch0(keypos_2);
-
     rte_atomic32_inc(&ptr->stats_search);
     if (ptr->cmp(keypos, key, ptr->keysize) == 0)
         return keypos;
+
+    uint32_t hash_2 = hash_sec(hash);
+    uint8_t *keypos_2 = &ptr->tblsec[hash_offset(ptr, hash_2)];
+    rte_prefetch0(keypos_2);
 
     rte_atomic32_inc(&ptr->stats_search);
     if (ptr->cmp(keypos_2, key, ptr->keysize) == 0)
