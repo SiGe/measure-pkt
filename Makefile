@@ -79,6 +79,8 @@ SRCS-y := \
 	src/modules/heavyhitter/hashmap_linear_ptr.c \
 	src/modules/heavyhitter/pqueue.c \
 	src/modules/superspreader/hashmap.c \
+	src/modules/superspreader/hashmap_linear.c \
+	src/modules/superspreader/cuckoo_local.c \
 	src/tests/test.c
 
 ifdef TESTS

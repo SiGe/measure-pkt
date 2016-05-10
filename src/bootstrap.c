@@ -11,7 +11,9 @@
 #include "modules/heavyhitter/hashmap_linear_ptr.h"
 #include "modules/heavyhitter/pqueue.h"
 
+#include "modules/superspreader/cuckoo_local.h"
 #include "modules/superspreader/hashmap.h"
+#include "modules/superspreader/hashmap_linear.h"
 
 #include "modules/randmod.h"
 
@@ -27,6 +29,8 @@ void boostrap_register_modules(void) {
     REGISTER_MODULE("HeavyHitter::PQueue",                  heavyhitter_pqueue);
 
     REGISTER_MODULE("SuperSpreader::Hashmap",               superspreader_hashmap);
+    REGISTER_MODULE("SuperSpreader::HashmapLinear",         superspreader_hashmap_linear);
+    REGISTER_MODULE("SuperSpreader::CuckooLocal",           superspreader_cuckoo_local);
 
     REGISTER_MODULE("Generic::RandMod",                     randmod);
 }

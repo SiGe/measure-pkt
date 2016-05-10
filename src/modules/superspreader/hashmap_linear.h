@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#ifndef _SUPERSPREADER_HASHMAP_H_
-#define _SUPERSPREADER_HASHMAP_H_
+#ifndef _SUPERSPREADER_HASHMAP_LINEAR_H_
+#define _SUPERSPREADER_HASHMAP_LINEAR_H_
 
 #include "../../common.h"
 #include "../../experiment.h"
@@ -32,18 +32,17 @@
 #include "../../reporter.h"
 
 #include "../../dss/bloomfilter.h"
-#include "../../dss/hashmap.h"
+#include "../../dss/hashmap_linear.h"
 
 /*
- * Superspreader detection with a lossy count array implementation
+ * Superspreader detection with linear hash table implementation
  *
  * The keys and values are saved sequentially, saving them separately does not
  * improve the performance as there is only a single memory access -- we accept
  * losses.
  *
  */
-typedef uint32_t Counter;
-struct ModuleSuperSpreaderHashmap {
+struct ModuleSuperSpreaderHashmapLinear {
     struct Module _m;
 
     uint32_t  size;
@@ -56,19 +55,19 @@ struct ModuleSuperSpreaderHashmap {
     ReporterPtr reporter;
 
     struct BFProp bfprop;
-    HashMapPtr hashmap;
+    HashMapLinearPtr hashmap_linear;
 
-    HashMapPtr hashmap_ptr1;
-    HashMapPtr hashmap_ptr2;
+    HashMapLinearPtr hashmap_linear_ptr1;
+    HashMapLinearPtr hashmap_linear_ptr2;
 };
 
-typedef struct ModuleSuperSpreaderHashmap* ModuleSuperSpreaderHashmapPtr;
+typedef struct ModuleSuperSpreaderHashmapLinear* ModuleSuperSpreaderHashmapLinearPtr;
 
-ModulePtr superspreader_hashmap_init(ModuleConfigPtr);
+ModulePtr superspreader_hashmap_linear_init(ModuleConfigPtr);
 
-void superspreader_hashmap_delete(ModulePtr);
-void superspreader_hashmap_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
-void superspreader_hashmap_reset(ModulePtr);
-void superspreader_hashmap_stats(ModulePtr, FILE *f);
+void superspreader_hashmap_linear_delete(ModulePtr);
+void superspreader_hashmap_linear_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
+void superspreader_hashmap_linear_reset(ModulePtr);
+void superspreader_hashmap_linear_stats(ModulePtr, FILE *f);
 
 #endif

@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#ifndef _SUPERSPREADER_HASHMAP_H_
-#define _SUPERSPREADER_HASHMAP_H_
+#ifndef _SUPERSPREADER_CUCKOO_LOCAL_H_
+#define _SUPERSPREADER_CUCKOO_LOCAL_H_
 
 #include "../../common.h"
 #include "../../experiment.h"
@@ -32,18 +32,18 @@
 #include "../../reporter.h"
 
 #include "../../dss/bloomfilter.h"
-#include "../../dss/hashmap.h"
+#include "../../dss/hashmap_cuckoo.h"
 
 /*
- * Superspreader detection with a lossy count array implementation
+ * Heavyhitter detection with a local implementation of Cuckoo hashing
  *
- * The keys and values are saved sequentially, saving them separately does not
- * improve the performance as there is only a single memory access -- we accept
- * losses.
+ * The keys and values are saved sequentially after each other.  There is
+ * no bucketing with this implementation, so the performance is limited by
+ * the access pattern, which is mostly random due to hash functions.
  *
  */
 typedef uint32_t Counter;
-struct ModuleSuperSpreaderHashmap {
+struct ModuleSuperSpreaderCuckooL {
     struct Module _m;
 
     uint32_t  size;
@@ -51,24 +51,23 @@ struct ModuleSuperSpreaderHashmap {
     unsigned  elsize;
     unsigned  socket;
 
-    unsigned stats_search;
+    uint32_t stats_search;
 
     ReporterPtr reporter;
 
     struct BFProp bfprop;
-    HashMapPtr hashmap;
+    HashMapCuckooPtr hashmap;
 
-    HashMapPtr hashmap_ptr1;
-    HashMapPtr hashmap_ptr2;
+    HashMapCuckooPtr hashmap_ptr1;
+    HashMapCuckooPtr hashmap_ptr2;
 };
 
-typedef struct ModuleSuperSpreaderHashmap* ModuleSuperSpreaderHashmapPtr;
+typedef struct ModuleSuperSpreaderCuckooL* ModuleSuperSpreaderCuckooLPtr;
+ModulePtr superspreader_cuckoo_local_init(ModuleConfigPtr params);
 
-ModulePtr superspreader_hashmap_init(ModuleConfigPtr);
-
-void superspreader_hashmap_delete(ModulePtr);
-void superspreader_hashmap_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
-void superspreader_hashmap_reset(ModulePtr);
-void superspreader_hashmap_stats(ModulePtr, FILE *f);
+void superspreader_cuckoo_local_delete(ModulePtr);
+void superspreader_cuckoo_local_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
+void superspreader_cuckoo_local_reset(ModulePtr);
+void superspreader_cuckoo_local_stats(ModulePtr, FILE*);
 
 #endif

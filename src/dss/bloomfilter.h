@@ -1,6 +1,11 @@
 #ifndef _DSS_BLOOMFILTER_
 #define _DSS_BLOOMFILTER_
 
+#define BF_SHIFT 10
+#define BF_SIZE (1<<10)
+#define BF_MASK (BF_SIZE-1)
+#define BF_BUCKET_SHIFT (BF_SHIFT>>1)
+#define BF_BUCKET_MASK ((1<<BF_BUCKET_SHIFT)-1)
 
 struct BFProp {
     int reserved; // nbits later?

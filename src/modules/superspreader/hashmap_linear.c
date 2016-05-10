@@ -16,13 +16,13 @@
 #include "../../reporter.h"
 
 #include "../../dss/bloomfilter.h"
-#include "../../dss/hashmap.h"
+#include "../../dss/hashmap_linear.h"
 #include "../../vendor/murmur3.h"
 
 #include "common.h"
-#include "hashmap.h"
+#include "hashmap_linear.h"
 
-ModulePtr superspreader_hashmap_init(ModuleConfigPtr conf) {
+ModulePtr superspreader_hashmap_linear_init(ModuleConfigPtr conf) {
     uint32_t size    = mc_uint32_get(conf, "size");
     uint32_t keysize = mc_uint32_get(conf, "keysize");
     uint32_t socket  = mc_uint32_get(conf, "socket");
@@ -32,10 +32,10 @@ ModulePtr superspreader_hashmap_init(ModuleConfigPtr conf) {
             keysize * 4, socket,
             mc_string_get(conf, "file-prefix"));
 
-    ModuleSuperSpreaderHashmapPtr module = rte_zmalloc_socket(0,
-            sizeof(struct ModuleSuperSpreaderHashmap), 64, socket); 
+    ModuleSuperSpreaderHashmapLinearPtr module = rte_zmalloc_socket(0,
+            sizeof(struct ModuleSuperSpreaderHashmapLinear), 64, socket); 
 
-    module->_m.execute = superspreader_hashmap_execute;
+    module->_m.execute = superspreader_hashmap_linear_execute;
     module->size  = size;
     module->keysize = keysize;
     module->bfprop.keylen = keysize;
@@ -43,42 +43,42 @@ ModulePtr superspreader_hashmap_init(ModuleConfigPtr conf) {
     module->socket = socket;
     module->reporter = reporter;
 
-    module->hashmap_ptr1 = hashmap_create(size, keysize, module->elsize, socket);
-    module->hashmap_ptr2 = hashmap_create(size, keysize, module->elsize, socket);
+    module->hashmap_linear_ptr1 = hashmap_linear_create(size, keysize, module->elsize, socket);
+    module->hashmap_linear_ptr2 = hashmap_linear_create(size, keysize, module->elsize, socket);
 
-    module->hashmap = module->hashmap_ptr1;
+    module->hashmap_linear = module->hashmap_linear_ptr1;
 
     return (ModulePtr)module;
 }
 
 void
-superspreader_hashmap_delete(ModulePtr module_) {
-    ModuleSuperSpreaderHashmapPtr module = (ModuleSuperSpreaderHashmapPtr)module_;
+superspreader_hashmap_linear_delete(ModulePtr module_) {
+    ModuleSuperSpreaderHashmapLinearPtr module = (ModuleSuperSpreaderHashmapLinearPtr)module_;
 
-    hashmap_delete(module->hashmap_ptr1);
-    hashmap_delete(module->hashmap_ptr2);
+    hashmap_linear_delete(module->hashmap_linear_ptr1);
+    hashmap_linear_delete(module->hashmap_linear_ptr2);
 
     rte_free(module);
 }
 
 inline void
-superspreader_hashmap_execute(
+superspreader_hashmap_linear_execute(
         ModulePtr module_,
         PortPtr port __attribute__((unused)),
         struct rte_mbuf ** __restrict__ pkts,
         uint32_t count) {
     (void)(port);
 
-    ModuleSuperSpreaderHashmapPtr module = (ModuleSuperSpreaderHashmapPtr)module_;
+    ModuleSuperSpreaderHashmapLinearPtr module = (ModuleSuperSpreaderHashmapLinearPtr)module_;
     uint16_t i = 0;
     uint64_t timer = rte_get_tsc_cycles(); (void)(timer);
     void *ptrs[MAX_PKT_BURST];
-    HashMapPtr hashmap = module->hashmap;
+    HashMapLinearPtr hashmap_linear = module->hashmap_linear;
 
-    /* Prefetch hashmap entries */
+    /* Prefetch hashmap_linear entries */
     for (i = 0; i < count; ++i) {
         uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
-        void *ptr = hashmap_get_copy_key(hashmap, (pkt + 26));
+        void *ptr = hashmap_linear_get_copy_key(hashmap_linear, (pkt + 26));
 
         ptrs[i] = ptr;
         rte_prefetch0(ptr);
@@ -100,25 +100,25 @@ superspreader_hashmap_execute(
 }
 
 inline void
-superspreader_hashmap_reset(ModulePtr module_) {
-    ModuleSuperSpreaderHashmapPtr module = (ModuleSuperSpreaderHashmapPtr)module_;
-    HashMapPtr prev = module->hashmap;
+superspreader_hashmap_linear_reset(ModulePtr module_) {
+    ModuleSuperSpreaderHashmapLinearPtr module = (ModuleSuperSpreaderHashmapLinearPtr)module_;
+    HashMapLinearPtr prev = module->hashmap_linear;
     reporter_tick(module->reporter);
 
-    if (module->hashmap == module->hashmap_ptr1) {
-        module->hashmap = module->hashmap_ptr2;
+    if (module->hashmap_linear == module->hashmap_linear_ptr1) {
+        module->hashmap_linear = module->hashmap_linear_ptr2;
     } else {
-        module->hashmap = module->hashmap_ptr1;
+        module->hashmap_linear = module->hashmap_linear_ptr1;
     }
 
-    module->stats_search += hashmap_num_searches(prev);
-    hashmap_reset(prev);
+    module->stats_search += hashmap_linear_num_searches(prev);
+    hashmap_linear_reset(prev);
 }
 
 inline void
-superspreader_hashmap_stats(ModulePtr module_, FILE *f) {
-    ModuleSuperSpreaderHashmapPtr module = (ModuleSuperSpreaderHashmapPtr)module_;
-    module->stats_search += hashmap_num_searches(module->hashmap);
-    fprintf(f, "SuperSpreader::Simple::SearchLoad\t%u\n", module->stats_search);
+superspreader_hashmap_linear_stats(ModulePtr module_, FILE *f) {
+    ModuleSuperSpreaderHashmapLinearPtr module = (ModuleSuperSpreaderHashmapLinearPtr)module_;
+    module->stats_search += hashmap_linear_num_searches(module->hashmap_linear);
+    fprintf(f, "SuperSpreader::Linear::SearchLoad\t%u\n", module->stats_search);
 }
 
