@@ -54,7 +54,7 @@ _rsave(FILE *fp, void *data, unsigned unused) {
     fprintf(fp, "%u.%u.%u.%u/%u.%u.%u.%u %u\n",
             *(key+0), *(key+1), *(key+2), *(key+3),
             *(key+4), *(key+5), *(key+6), *(key+7),
-            HEAVY_HITTER_THRESHOLD);
+            HEAVYHITTER_THRESHOLD);
 }
 
 void reporter_tick(ReporterPtr ptr) {

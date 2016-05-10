@@ -63,7 +63,8 @@
 
 // Report threshold
 #define REPORT_THRESHOLD 0x1fffff
-#define HEAVY_HITTER_THRESHOLD 2048
+#define HEAVYHITTER_THRESHOLD 2048
+#define SUPERSPREADER_THRESHOLD 32
 
 // Cache line properties
 #ifndef RTE_CACHE_LINE_MIN_SIZE

@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#ifndef _COUNT_ARRAY_PQUEUE_H_
-#define _COUNT_ARRAY_PQUEUE_H_
+#ifndef _HEAVYHITTER_PQUEUE_H_
+#define _HEAVYHITTER_PQUEUE_H_
 
 #include "rte_spinlock.h"
 

@@ -118,7 +118,7 @@ save_heavy_hitters(PriorityQueuePtr pq, ReporterPtr reporter, uint16_t keysize) 
     while ((cell = pqueue_iterate(pq, &idx)) != 0) {
         uint32_t count = *((uint32_t*)cell+keysize);
 
-        if (count > HEAVY_HITTER_THRESHOLD) {
+        if (count > HEAVYHITTER_THRESHOLD) {
             reporter_add_entry(reporter, ((uint32_t*)cell));
         }
     }

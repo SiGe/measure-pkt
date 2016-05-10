@@ -47,6 +47,8 @@ CFLAGS += $(WERROR_FLAGS)
 
 # all source are stored in SRCS-y
 SRCS-y := \
+	src/dss/bloomfilter.c \
+	src/dss/countmin.c \
 	src/dss/hashmap.c \
 	src/dss/hashmap_linear.c \
 	src/dss/hashmap_cuckoo.c \
@@ -67,6 +69,7 @@ SRCS-y := \
 	src/modules/ring.c \
 	src/modules/consumer.c \
 	src/modules/randmod.c \
+	src/modules/heavyhitter/countmin.c \
 	src/modules/heavyhitter/cuckoo.c \
 	src/modules/heavyhitter/cuckoo_bucket.c \
 	src/modules/heavyhitter/cuckoo_local.c \
@@ -75,6 +78,7 @@ SRCS-y := \
 	src/modules/heavyhitter/hashmap_linear.c \
 	src/modules/heavyhitter/hashmap_linear_ptr.c \
 	src/modules/heavyhitter/pqueue.c \
+	src/modules/superspreader/hashmap.c \
 	src/tests/test.c
 
 ifdef TESTS

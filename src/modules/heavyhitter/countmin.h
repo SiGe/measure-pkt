@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#ifndef _HEAVYHITTER_CUCKOO_LOCAL_PTR_H_
-#define _HEAVYHITTER_CUCKOO_LOCAL_PTR_H_
+#ifndef _HEAVYHITTER_COUNTMIN__H_
+#define _HEAVYHITTER_COUNTMIN__H_
 
 #include "../../common.h"
 #include "../../experiment.h"
@@ -31,18 +31,18 @@
 #include "../../net.h"
 #include "../../reporter.h"
 
-#include "../../dss/hashmap_cuckoo.h"
+#include "../../dss/countmin.h"
 
 /*
- * Heavyhitter detection with a local implementation of Cuckoo hashing
+ * Heavyhitter detection with a lossy count array implementation
  *
- * The keys and values are saved in separate places, this increases locality of
- * keys but since there is no bucketing with this implementation it is visible
- * that there are no benefits with this approach.
+ * The keys and values are saved sequentially, saving them separately does not
+ * improve the performance as there is only a single memory access -- we accept
+ * losses.
  *
  */
 typedef uint32_t Counter;
-struct ModuleHeavyHitterCuckooLP {
+struct ModuleHeavyHitterCountMin {
     struct Module _m;
 
     uint32_t  size;
@@ -50,26 +50,22 @@ struct ModuleHeavyHitterCuckooLP {
     unsigned  elsize;
     unsigned  socket;
 
-    uint32_t stats_search;
+    unsigned stats_search;
 
     ReporterPtr reporter;
-    HashMapCuckooPtr hashmap;
+    CountMinPtr countmin;
 
-    HashMapCuckooPtr hashmap_ptr1;
-    HashMapCuckooPtr hashmap_ptr2;
-
-    uint32_t index;
-    uint8_t *values;
-    uint8_t *vals1;
-    uint8_t *vals2;
+    CountMinPtr countmin_ptr1;
+    CountMinPtr countmin_ptr2;
 };
 
-typedef struct ModuleHeavyHitterCuckooLP* ModuleHeavyHitterCuckooLPPtr;
-ModulePtr heavyhitter_cuckoo_local_ptr_init(ModuleConfigPtr params);
+typedef struct ModuleHeavyHitterCountMin* ModuleHeavyHitterCountMinPtr;
 
-void heavyhitter_cuckoo_local_ptr_delete(ModulePtr);
-void heavyhitter_cuckoo_local_ptr_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
-void heavyhitter_cuckoo_local_ptr_reset(ModulePtr);
-void heavyhitter_cuckoo_local_ptr_stats(ModulePtr, FILE*);
+ModulePtr heavyhitter_countmin_init(ModuleConfigPtr);
+
+void heavyhitter_countmin_delete(ModulePtr);
+void heavyhitter_countmin_execute(ModulePtr, PortPtr, struct rte_mbuf **, uint32_t);
+void heavyhitter_countmin_reset(ModulePtr);
+void heavyhitter_countmin_stats(ModulePtr, FILE *f);
 
 #endif

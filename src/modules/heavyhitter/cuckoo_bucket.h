@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#ifndef _COUNT_ARRAY_CUCKOO_BUCKET_H_
-#define _COUNT_ARRAY_CUCKOO_BUCKET_H_
+#ifndef _HEAVYHITTER_CUCKOO_BUCKET_H_
+#define _HEAVYHITTER_CUCKOO_BUCKET_H_
 
 #include "../../common.h"
 #include "../../experiment.h"
