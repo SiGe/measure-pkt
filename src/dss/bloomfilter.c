@@ -24,8 +24,8 @@ int bloomfilter_add_key(BFPropPtr bfp, void *bf, void const *key) {
     uint32_t *bf3 = bfa + idx3;
 
     uint32_t off1 = (1<<(h1 & 0b11111));
-    uint32_t off2 = (2<<(h2 & 0b11111));
-    uint32_t off3 = (3<<(h3 & 0b11111));
+    uint32_t off2 = (1<<(h2 & 0b11111));
+    uint32_t off3 = (1<<(h3 & 0b11111));
 
     int is_member = (*bf1 & off1) && (*bf2 & off2) && (*bf3 & off3);
 
@@ -60,8 +60,8 @@ int bloomfilter_is_member(BFPropPtr bfp, void *bf, void const *key) {
     uint32_t *bf3 = bfa + idx3;
 
     uint32_t off1 = (1<<(h1 & 0b11111));
-    uint32_t off2 = (2<<(h2 & 0b11111));
-    uint32_t off3 = (3<<(h3 & 0b11111));
+    uint32_t off2 = (1<<(h2 & 0b11111));
+    uint32_t off3 = (1<<(h3 & 0b11111));
 
     return (*bf1 & off1) && (*bf2 & off2) && (*bf3 & off3);
 }

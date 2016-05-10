@@ -7,6 +7,8 @@
 #include "rte_malloc.h"
 #include "rte_mbuf.h"
 
+#include "../../pkt.h"
+
 #include "../../common.h"
 #include "../../experiment.h"
 #include "../../module.h"
@@ -25,7 +27,6 @@
 ModulePtr superspreader_hashmap_init(ModuleConfigPtr conf) {
     uint32_t size    = mc_uint32_get(conf, "size");
     uint32_t keysize = mc_uint32_get(conf, "keysize");
-    uint32_t elsize  = mc_uint32_get(conf, "valsize");
     uint32_t socket  = mc_uint32_get(conf, "socket");
 
     ReporterPtr reporter = reporter_init(
@@ -39,12 +40,13 @@ ModulePtr superspreader_hashmap_init(ModuleConfigPtr conf) {
     module->_m.execute = superspreader_hashmap_execute;
     module->size  = size;
     module->keysize = keysize;
+    module->bfprop.keylen = keysize;
     module->elsize = BF_SIZE/(8*4) + 1; // Keysize + bloomfilter size
     module->socket = socket;
     module->reporter = reporter;
 
-    module->hashmap_ptr1 = hashmap_create(size, keysize, elsize, socket);
-    module->hashmap_ptr2 = hashmap_create(size, keysize, elsize, socket);
+    module->hashmap_ptr1 = hashmap_create(size, keysize, module->elsize, socket);
+    module->hashmap_ptr2 = hashmap_create(size, keysize, module->elsize, socket);
 
     module->hashmap = module->hashmap_ptr1;
 
@@ -85,7 +87,6 @@ superspreader_hashmap_execute(
     }
 
     BFPropPtr bfptr = &module->bfprop;
-
     unsigned keysize = module->keysize;
 
     /* Save and report if necessary */
@@ -94,7 +95,6 @@ superspreader_hashmap_execute(
         void *ptr = ptrs[i];
         uint32_t *bc = (uint32_t*)(ptr);
         uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
-
         if (superspreader_copy_and_inc(bfptr, bc, pkt, keysize)) {
             reporter_add_entry(reporter, pkt+26);
         }

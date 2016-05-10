@@ -11,6 +11,8 @@
 #include "modules/heavyhitter/hashmap_linear_ptr.h"
 #include "modules/heavyhitter/pqueue.h"
 
+#include "modules/superspreader/hashmap.h"
+
 #include "modules/randmod.h"
 
 void boostrap_register_modules(void) {
@@ -23,6 +25,8 @@ void boostrap_register_modules(void) {
     REGISTER_MODULE("HeavyHitter::HashmapLinear",           heavyhitter_hashmap_linear);
     REGISTER_MODULE("HeavyHitter::HashmapLinearPointer",    heavyhitter_hashmap_linear_ptr);
     REGISTER_MODULE("HeavyHitter::PQueue",                  heavyhitter_pqueue);
+
+    REGISTER_MODULE("SuperSpreader::Hashmap",               superspreader_hashmap);
 
     REGISTER_MODULE("Generic::RandMod",                     randmod);
 }
