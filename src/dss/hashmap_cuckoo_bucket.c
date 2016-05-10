@@ -121,17 +121,6 @@ hashmap_cuckoo_bucket_create(uint32_t size, uint16_t keysize,
     return ptr;
 }
 
-/* Taken from rte_hash library */
-inline static uint32_t
-hash_sec(uint32_t primary_hash) {
-    static const unsigned all_bits_shift = 12;
-    static const unsigned alt_bits_xor = 0x5bd1e995;
-
-    uint32_t tag = primary_hash >> all_bits_shift;
-
-    return (primary_hash ^ ((tag + 1) * alt_bits_xor));
-}
-
 inline static uint32_t
 hash_offset(HashMapCuckooBucketPtr ptr, uint32_t idx) {
     return ((idx & ptr->num_buckets) * (ptr->bucket_size) * sizeof(uint32_t));
@@ -191,6 +180,27 @@ find_or_insert_key_in_bucket(HashMapCuckooBucketPtr ptr,
     return 0;
 }
 
+/* inspired from rte_hash_cuckoo.c */
+/* find an entry in the bucket that can be sent to its alternate position */
+/* TODO: complete this? */
+inline static void *
+make_space_in_bucket(HashMapCuckooBucketPtr ptr, void *bucket, int primary) {
+    (void)(primary);
+    unsigned entries = ptr->entries_per_bucket;
+    uint32_t *entry = (uint32_t*)bucket;
+    unsigned i = 0;
+
+    /* If there is an empty entry just return true */
+    for (i = 0; i < entries; ++i) {
+        rte_atomic32_inc(&ptr->stats_search);
+        if (is_entry_empty(ptr, entry)) {
+                return entry;
+        }
+    }
+
+    /* Else recursively look for an entry that can be
+     * sent to its alternate position */
+}
 
 inline static void *
 find_empty_or_return_first(HashMapCuckooBucketPtr ptr, void *bucket) {
@@ -218,12 +228,12 @@ find_or_insert_key(HashMapCuckooBucketPtr ptr, void const *key) {
     uint8_t *keypos = &ptr->tblpri[hash_offset(ptr, hash)];
     rte_prefetch0(keypos);
 
-    uint32_t hash_2 = hash_sec(hash);
-    uint8_t *keypos_2 = &ptr->tblsec[hash_offset(ptr, hash_2)];
-    rte_prefetch0(keypos_2);
-
     if ((ret = find_or_insert_key_in_bucket(ptr, key, keypos, hash)) != 0)
         return ret;
+
+    uint32_t hash_2 = dss_hash_2(hash);
+    uint8_t *keypos_2 = &ptr->tblsec[hash_offset(ptr, hash_2)];
+    rte_prefetch0(keypos_2);
 
     if ((ret = find_or_insert_key_in_bucket(ptr, key, keypos_2, hash)) != 0)
         return ret;
@@ -260,7 +270,7 @@ find_or_insert_key(HashMapCuckooBucketPtr ptr, void const *key) {
 
         /* Update keypos */
         hash = (*((uint32_t*)(ptr->scratch_2 + 4* ptr->keysize)));
-        hash = hash_sec(hash);
+        hash = dss_hash_2(hash);
         keypos = &ptr->tblsec[hash_offset(ptr, hash)];
         keypos = find_empty_or_return_first(ptr, keypos);
 

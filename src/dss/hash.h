@@ -38,4 +38,20 @@ dss_hash_3(uint32_t primary_hash) {
     return (primary_hash ^ ((tag + 1) * alt_bits_xor));
 }
 
+static unsigned long x=123456789, y=362436069, z=521288629;
+inline static unsigned xorshf96(void) {          //period 2^96-1
+    unsigned t;
+    x ^= x << 16;
+    x ^= x >> 5;
+    x ^= x << 1;
+
+    t = x;
+    x = y;
+    y = z;
+    z = t ^ x ^ y;
+
+    return z;
+}
+
+
 #endif

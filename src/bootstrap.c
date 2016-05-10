@@ -10,6 +10,7 @@
 #include "modules/heavyhitter/hashmap_linear.h"
 #include "modules/heavyhitter/hashmap_linear_ptr.h"
 #include "modules/heavyhitter/pqueue.h"
+#include "modules/heavyhitter/sharedmap.h"
 
 #include "modules/superspreader/cuckoo_local.h"
 #include "modules/superspreader/hashmap.h"
@@ -27,6 +28,7 @@ void boostrap_register_modules(void) {
     REGISTER_MODULE("HeavyHitter::HashmapLinear",           heavyhitter_hashmap_linear);
     REGISTER_MODULE("HeavyHitter::HashmapLinearPointer",    heavyhitter_hashmap_linear_ptr);
     REGISTER_MODULE("HeavyHitter::PQueue",                  heavyhitter_pqueue);
+    REGISTER_MODULE("HeavyHitter::Sharedmap",               heavyhitter_sharedmap);
 
     REGISTER_MODULE("SuperSpreader::Hashmap",               superspreader_hashmap);
     REGISTER_MODULE("SuperSpreader::HashmapLinear",         superspreader_hashmap_linear);
