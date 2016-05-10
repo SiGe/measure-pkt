@@ -1,0 +1,11 @@
+Experiment:
+    name: SuperSpreaderHashMap
+    ports:
+        - port-id: 1
+          modules:
+              - name: SuperSpreader::HashMap
+                size: 1048576
+                keysize: 1
+                socket: 1
+                file-prefix: superspreader-hashmap-%04d.log
+                reporter-size: 2048
