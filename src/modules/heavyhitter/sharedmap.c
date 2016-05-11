@@ -101,7 +101,14 @@ heavyhitter_sharedmap_execute(
         uint32_t *bc = (uint32_t*)(ptr);
         uint8_t const* pkt = rte_pktmbuf_mtod(pkts[i], uint8_t const*);
 
-        if (heavyhitter_copy_and_inc(bc, pkt, elsize)) {
+        int try = 1;
+        while (try) {
+            uint32_t val = *bc;
+            try = !__sync_bool_compare_and_swap(bc, val, val + 1);
+        }
+
+        rte_memcpy((uint32_t*)bc+1, pkt, (elsize-1)*4);
+        if (*bc == HEAVYHITTER_THRESHOLD) {
             reporter_add_entry(reporter, pkt+26);
         }
     }

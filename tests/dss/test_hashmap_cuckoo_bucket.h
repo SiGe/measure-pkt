@@ -20,18 +20,18 @@ START_TEST(test_hashmap_cuckoo_bucket_read_after_write) {
 END_TEST
 
 START_TEST(test_hashmap_cuckoo_bucket_can_get_75p_loaded) {
-    unsigned size = 1024;
+    unsigned size = 4096;
     HashMapCuckooBucketPtr hml = hashmap_cuckoo_bucket_create(size, 2, 1, 0);
 
     unsigned i = 0;
     uint32_t *value;
 
-    for (i = 0; i < size * 1.5; ++i) {
+    for (i = 0; i < size * 1.55; ++i) {
         value = (uint32_t*)hashmap_cuckoo_bucket_get_copy_key(hml, &i);
         *value = i * 0xbeaf;
     }
 
-    for (i = 0; i < size * 1.5; ++i) {
+    for (i = 0; i < size * 1.55; ++i) {
         value = (uint32_t*)hashmap_cuckoo_bucket_get_copy_key(hml, &i);
         ck_assert_uint_eq(*value, i * 0xbeaf);
     }

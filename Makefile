@@ -92,6 +92,7 @@ LDFLAGS += -lcheck_pic -lrt -lm
 APP = test
 endif
 
+CFLAGS += $(USER_DEFINES)
 
 .PHONY: check
 check: clean install

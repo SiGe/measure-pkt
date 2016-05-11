@@ -18,7 +18,10 @@ struct HashMap {
     uint16_t elsize;
 
     dss_cmp_func cmp;
+
+#ifdef _COUNT_MEMORY_STATS_
     rte_atomic32_t stats_search;
+#endif
 
     int table[];
 };
@@ -26,7 +29,9 @@ struct HashMap {
 inline void
 hashmap_reset(HashMapPtr ptr) {
     ptr->count = 0;
+#ifdef _COUNT_MEMORY_STATS_
     rte_atomic32_set(&ptr->stats_search, 0);
+#endif
     memset(ptr->table, 0, ptr->size * (ptr->elsize + ptr->keysize) * sizeof(uint32_t));
 }
 
@@ -57,7 +62,9 @@ hashmap_get_copy_key(HashMapPtr ptr, void const *key) {
     uint32_t *ret = (((uint32_t*)ptr->table) + /* Base addr */
             (hash & ptr->size) * (ptr->rowsize)); /* Index */
     rte_memcpy(ret, key, ptr->keysize*4);
+#ifdef _COUNT_MEMORY_STATS_
     rte_atomic32_inc(&ptr->stats_search);
+#endif
     return (ret + ptr->keysize);
 }
 
@@ -67,7 +74,9 @@ hashmap_get_nocopy_key(HashMapPtr ptr, void const *key) {
     uint32_t *ret = (((uint32_t*)ptr->table) + /* Base addr */
             (hash & ptr->size) * (ptr->rowsize)); /* Index */
     ptr->count++;
+#ifdef _COUNT_MEMORY_STATS_
     rte_atomic32_inc(&ptr->stats_search);
+#endif
     return (ret + ptr->keysize);
 }
 
@@ -76,7 +85,9 @@ hashmap_get_with_hash(HashMapPtr ptr, uint32_t hash) {
     uint32_t *ret = (((uint32_t*)ptr->table) + /* Base addr */
             (hash & ptr->size) * (ptr->rowsize)); /* Index */
     ptr->count++;
+#ifdef _COUNT_MEMORY_STATS_
     rte_atomic32_inc(&ptr->stats_search);
+#endif
     return (ret + ptr->keysize);
 }
 
@@ -112,5 +123,10 @@ hashmap_count(HashMapPtr ptr) {
 
 inline uint32_t
 hashmap_num_searches(HashMapPtr ptr){ 
+#ifdef _COUNT_MEMORY_STATS_
     return (uint32_t)(rte_atomic32_read(&ptr->stats_search));
+#else
+    (void)(ptr);
+    return 0;
+#endif
 }
