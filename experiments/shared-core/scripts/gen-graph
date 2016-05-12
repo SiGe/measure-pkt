@@ -100,13 +100,13 @@ _getAccuracy() {
 _getCycles() {
     local folder=$1
     local p50=$(tac $folder/app.log | egrep '50.0(\s*)Percentile:(\s*)([0-9]+)' \
-        | grep -v 4096 | awk '{print $4}' | head -n1)
+        | grep -v 4096 | awk '{print $4}' | head -n2 | awk '{sum += $1; count+=1} END {print sum/count}' )
     local p95=$(tac $folder/app.log | egrep '95.0(\s*)Percentile:(\s*)([0-9]+)' \
-        | grep -v 4096 | awk '{print $4}' | head -n1)
+        | grep -v 4096 | awk '{print $4}' | head -n2 | awk '{sum += $1; count+=1} END {print sum/count}')
     local p99=$(tac $folder/app.log | egrep '99.0(\s*)Percentile:(\s*)([0-9]+)' \
-        | grep -v 4096 | awk '{print $4}' | head -n1)
+        | grep -v 4096 | awk '{print $4}' | head -n2 | awk '{sum += $1; count+=1} END {print sum/count}')
     local avg=$(tac $folder/app.log | egrep 'Average' | grep -v nan \
-        | awk '{print $5}' | head -n1)
+        | awk '{print $5}' | head -n2 | awk '{sum += $1; count+=1} END {print sum/count}')
 
     echo -e "$avg\t$p50\t$p95\t$p99"
 }
@@ -117,79 +117,18 @@ _getStats() {
     echo -e "$stats"
 }
 
-_L3CacheUsage() {
-    coreNum=$1
-    egrep "^(\\s+)$coreNum(\\s+)" |
-    head -n 10 | tail -n 5 |
-    awk '{sum += $4; count +=1} END {print sum/count}'
-}
-
-_getCacheEaterResults() {
-    # Get results for cache-eaters
-    cacheFile=$1
-    runMask=$2
-    coreMask=1
-    coreNum=0
-    sum=0
-    count=0
-    while [[ "$coreMask" -le "0xfffffff" ]]; do
-        isCoreActive=$(( $coreMask & $runMask ))
-
-        if [ $isCoreActive -ne 0 ]; then
-            cacheUsage=$(tac $cacheFile | _L3CacheUsage $coreNum)
-            sum=$(echo "$cacheUsage + $sum" | bc -l)
-            count=$(($count + 1))
-        fi
-
-        coreNum=$(( $coreNum + 1 ))
-        coreMask=$(( $coreMask * 2 ))
-    done
-
-    echo -e "$sum\t$count"
-}
-
-_getCacheAppResults() {
-    aCoreNum="0" # Application core num
-    m1CoreNum="1" # Measurement core num
-    m2CoreNum="3" # Measurement core num
-    rCoreNum="5" # Reporter core num
-
-    ret=""
-    for coreId in $m1CoreNum $m2CoreNum $rCoreNum; do
-        cacheUsage=$(tac $cacheFile | _L3CacheUsage $coreId)
-        ret="$ret$cacheUsage\t"
-    done
-
-    cacheUsage=$(tac $cacheFile | _L3CacheUsage $aCoreNum)
-    echo -e "$ret$cacheUsage"
-}
-
-_getCacheResults() {
-    local folder=$1
-    local cacheFile=$(echo "$folder/cache.log")
-    local runMask=$(echo $folder | egrep '(0x([a-hA-H0-9]+))' -o)
-
-    cacheEaters=$(_getCacheEaterResults $cacheFile $runMask)
-    cacheApp=$(_getCacheAppResults $cacheFile)
-
-
-    echo -e "$cacheEaters\t$cacheApp"
-}
-
 _getFolderForExp() {
     exp=$(_titleToDs $1)
     trfcDist=$2
     entries=$3
     valSize=$4
-    eaterSize=$5
-    eaterMask=$6
     local resultsDir=${_RESULTDIR}
 
-    echo -e "$resultsDir/$trfcDist/$exp/$entries/$valSize/$eaterSize/$eaterMask"
+    echo -e "$resultsDir/$trfcDist/$exp/$entries/$valSize"
 }
 
 _statsForExp() {
-    _statsForFolder $(_getFolderForExp $1 $2 $3 $4 $5 $6) $1 $2 $3 $4 $5 $6
+    _statsForFolder $(_getFolderForExp $1 $2 $3 $4) $1 $2 $3 $4
 }
 
 _statsForFolder() {
@@ -198,21 +137,120 @@ _statsForFolder() {
     local trfcDist=$3
     local entries=$4
     local valSize=$5
-    local eaterSize=$6
-    local eaterMask=$7
 
     local time=$(_getCycles $expDir)
-    local acc=$(_getAccuracy $expDir $trfcDist)
     local stats=$(_getStats $expDir)
     local size=$(_titleToSize $exp $entries $valSize)
-    local cache=$(_getCacheResults $expDir)
 
     ###################################################################
     #   1,    2,    3,       4,   5,   6,       7,  8,  9,  10,    11 #
     # exp, size, dist, valSize, prec, acc, average, 50, 95, 99, stats #
     ###################################################################
 
-    echo -e "$exp\t$size\t$trfcDist\t$valSize\t$acc\t$time\t$stats\t$cache\t$eaterSize"
+    echo -e "$exp\t$size\t$trfcDist\t$valSize\t100\t100\t$time\t27000000"
+}
+
+###################################################################
+#   1,    2,    3,       4,   5,   6,       7,  8,  9,  10,    11 #
+# exp, size, dist, valSize, prec, acc, average, 50, 95, 99, stats #
+###################################################################
+_experimentOverallComparison() {
+    for dist in def; do
+        # for size in 65536 131072 262144 524288; do
+        #     _statsForExp "Heap" $dist $size 3
+        # done
+
+        for size in 128 256 512 1024 2048 4096 8192 16384 32768 131072 262144 524288 1048576 2097152 4194304 8388608; do
+            _statsForExp "CountMin" $dist $size 3
+        done
+
+        for size in 128 256 512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608; do
+            _statsForExp "Simple" $dist $size 3
+        done
+
+        for size in 131072 262144 524288 1048576 2097152 4194304 8388608; do
+            _statsForExp "Linear" $dist $size 3
+        done
+
+        # for size in 131072 262144 524288 1048576 2097152 4194304; do
+        #     _statsForExp "Cuckoo" $dist $size 3
+        # done
+
+        for size in 16384 32768 65536 131072 262144 524288 1048576 2097152; do
+            _statsForExp "Heap" $dist $size 3
+        done
+    done | awk '{print $0"\t"$1"-"$3}' | tee stats-tmp.csv
+   _drawGraphGroupByField "stats-tmp.csv" '2' '1024*1024' '10' '1' "Size (MB)" "99th percentile (cycles)" "graphs/twisted-99-1.25.pdf" true false '12'
+   _drawGraphGroupByField "stats-tmp.csv" '2' '1024*1024' '7' '1' "Size (MB)" "Average (cycles)" "graphs/twisted-avg-1.25.pdf" true false '12'
+
+    # Available dist: 0.75 1.1 1.5
+   # for dist in 1.25; do
+   #     # for size in 65536 131072 262144 524288; do
+   #     #     _statsForExp "Heap" $dist $size 3
+   #     # done
+
+   #     for size in 262144 524288 1048576 2097152 4194304 8388608; do
+   #         _statsForExp "Simple" $dist $size 3
+   #     done
+
+   #     for size in 262144 524288 1048576 2097152 4194304 8388608; do
+   #         _statsForExp "Linear" $dist $size 3
+   #     done
+
+   #     for size in 131072 262144 524288 1048576 2097152 4194304; do
+   #         _statsForExp "Cuckoo" $dist $size 3
+   #     done
+
+   #     for size in 65536 131072 262144 524288; do
+   #         _statsForExp "Heap" $dist $size 3
+   #     done
+   # done | awk '{print $0"\t"$1"-"$3}' | tee stats-tmp.csv
+
+   #_drawGraphGroupByField "stats-tmp.csv" '2' '1024*1024' '10' '1' "Size (MB)" "99th percentile (cycles)" "graphs/twisted-99-1.25.pdf" true false '12'
+   #_drawGraphGroupByField "stats-tmp.csv" '2' '1024*1024' '7' '1' "Size (MB)" "Average (cycles)" "graphs/twisted-avg-1.25.pdf" true false '12'
+
+   #for dist in 1.1; do
+   #    # for size in 65536 131072 262144 524288; do
+   #    #     _statsForExp "Heap" $dist $size 3
+   #    # done
+
+   #    for size in 262144 524288 1048576 2097152 4194304 8388608; do
+   #        _statsForExp "Simple" $dist $size 3
+   #    done
+
+   #    for size in 262144 524288 1048576 2097152 4194304 8388608; do
+   #        _statsForExp "Linear" $dist $size 3
+   #    done
+
+   #    for size in 262144 524288 1048576 2097152 4194304; do
+   #        _statsForExp "Cuckoo" $dist $size 3
+   #    done
+
+   #    for size in 65536 131072 262144 524288; do
+   #        _statsForExp "Heap" $dist $size 3
+   #    done
+   #done | awk '{print $0"\t"$1"-"$3}' | tee stats-tmp.csv
+
+   #_drawGraphGroupByField "stats-tmp.csv" '2' '1024*1024' '10' '1' "Size (MB)" "99th percentile (cycles)" "graphs/twisted-99-1.1.pdf" true false '12'
+   #_drawGraphGroupByField "stats-tmp.csv" '2' '1024*1024' '7' '1' "Size (MB)" "Average (cycles)" "graphs/twisted-avg-1.1.pdf" true false '12'
+}
+
+###################################################################
+#   1,    2,    3,       4,   5,   6,       7,  8,  9,  10,    11 #
+# exp, size, dist, valSize, prec, acc, average, 50, 95, 99, stats #
+###################################################################
+_experimentSharedGraph() {
+    # Available dist: 0.5 1.1 1.5
+    for dist in def; do
+        for size in 128 256 512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304; do
+            _statsForExp "Simple" $dist $size 3
+        done
+        for size in 256 512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608; do
+            _statsForExp "Shared" $dist $size 3
+        done
+    done | awk '{print $0"\t"$1"-"$3}' | tee stats-tmp.csv
+
+    _drawGraphGroupByField "stats-tmp.csv" '2' '1024*1024' '10' '2.3' "Size (MB)" "Latency (ns)" "graphs/shared-cyc.pdf" true false '1'
 }
 
 _generateCsvFiles() {
@@ -242,6 +280,8 @@ _titleToDs() {
         "Linear")       ret="01-hh-hm-linear";;
         "RTEHash")      ret="01-hh-hm-cuckoo";;
         "Simple")       ret="01-hh-hm-simple";;
+        "Shared")       ret="01-hh-hm-shared";;
+        "CountMin")     ret="01-hh-hm-countmin";;
         *) ret=$field;;
     esac
     echo -e "$ret"
@@ -257,6 +297,8 @@ _dsToTitle() {
         *cuckoo-local*) ret="Cuckoo";;
         *cuckoo*)       ret="RTEHash";;
         *simple*)       ret="Simple";;
+        *shared*)       ret="Shared";;
+        *countmin*)     ret="CountMin";;
         *linear-ptr*)   ret="LinearPtr";;
         *linear*)       ret="Linear";;
         *) $field;;
@@ -273,16 +315,18 @@ _dsToSize() {
     local size=$2
     local keySize=2
     local elSize=${3:-3}
-    local heapFactor=16
+    local heapFactor=8
     local heapExtra=1
     local ret=""
     case $field in
-        *pqueue*)       ret=$(echo "4 * ($keySize + $elSize + $heapExtra) * $heapFactor * 2" | bc);;
+        *pqueue*)       ret=$(echo "8 + ($keySize + $elSize + $heapExtra)" | bc);;
         *cuckoo-bucket*)ret=$(echo "4 * ($keySize + $elSize + 1) * 2" |  bc);;
         *cuckoo-ptr*)   ret=$(echo "4 * ($keySize + $elSize + 1) * 2" |  bc);;
         *cuckoo-local*) ret=$(echo "4 * ($keySize + $elSize + 1) * 2" |  bc);;
         *cuckoo*)       ret=$(echo "4 * ($keySize + $elSize + 1)" |  bc);;
-        *simple*)       ret=$(echo "4 * ($keySize + $elSize + 1)" |  bc);;
+        *countmin*)     ret=$(echo "4 * ($elSize) * 3" |  bc);;
+        *simple*)       ret=$(echo "4 * ($keySize + $elSize + 1) * 2" |  bc);;
+        *shared*)       ret=$(echo "4 * ($keySize + $elSize + 1)" |  bc);;
         *linear-ptr*)   ret=$(echo "4 * ($keySize + $elSize + 1)" |  bc);;
         *linear*)       ret=$(echo "4 * ($keySize + $elSize + 1)" |  bc);;
     esac
@@ -298,8 +342,10 @@ _nameToLineType() {
         *LinearPtr*)    ret="3";;
         *Linear*)       ret="4";;
         *Simple*)       ret="5";;
-        *Heap*)         ret="6";;
-        *RTEHash*)      ret="7";;
+        *Shared*)       ret="5";;
+        *CountMin*)     ret="6";;
+        *Heap*)         ret="7";;
+        *RTEHash*)      ret="8";;
     esac
     echo -e "$ret"
 }
@@ -350,7 +396,7 @@ EOF
     count=0
     printf "plot " >>$graphName
     for field in $fields; do
-        cat $dataFile | egrep "$field(\s+|$)" | sort -nk$2 > ${field}-tmp.csv
+        cat $dataFile | egrep "$field(\s+|$)" | sort -nk2 > ${field}-tmp.csv
         local lt=$(_nameToLineType $field)
         printf "'${field}-tmp.csv' using ($yColumnToExtract/($yColumnFactor)):($xColumnToExtract/($xColumnFactor))\
             title '$field' w lp ls $lt," >>$graphName
@@ -365,105 +411,8 @@ EOF
     #rm $graphName
 }
 
-
-###################################################################
-#   1,    2,    3,       4,   5,   6,       7,  8,  9,  10,    11 #
-# exp, size, dist, valSize, prec, acc, average, 50, 95, 99, stats #
-###################################################################
-_experimentCacheSizeCycles() {
-    # Available dist: 0.75 1.1 1.5
-    for dist in 1.1; do
-        for cacheSize in 1 2 4 8 16 32 64 128 256 512 1024 2048; do
-            for size in 2097152; do
-                _statsForExp "Simple" $dist $size 3 $cacheSize 0x80
-            done
-
-            for size in 2097152; do
-                _statsForExp "Linear" $dist $size 3 $cacheSize 0x80
-            done
-
-            for size in 1048576; do
-                _statsForExp "Cuckoo" $dist $size 3 $cacheSize 0x80
-            done
-
-            for size in 1048576; do
-                _statsForExp "CuckooBucket" $dist $size 3 $cacheSize 0x80
-            done
-        done
-    done | awk '{print $0"\t"$1"-"$3}' | tee stats-tmp.csv
-
-    _drawGraphGroupByField "stats-tmp.csv" '18' '1' '10' '1' "Cache size" "99th percentile (cycles)" "graphs/twisted.pdf" true false '19'
-    _drawGraphGroupByField "stats-tmp.csv" '18' '1' '7' '1' "Cache size" "Average (cycles)" "graphs/twisted-avg.pdf" true false '19'
-}
-
-###################################################################
-#   1,    2,    3,       4,   5,   6,       7,  8,  9,  10,    11 #
-# exp, size, dist, valSize, prec, acc, average, 50, 95, 99, stats #
-###################################################################
-_experimentCacheAppUtil64() {
-    # Available dist: 0.75 1.1 1.5
-    for dist in 1.1; do
-        for core in 0x80 0x280 0xA80 0x2A80 0xAA80 0x2AA80 0xAAA80; do
-            for size in 2097152; do
-                _statsForExp "Simple" $dist $size 3 64 $core
-            done
-
-            for size in 2097152; do
-                _statsForExp "Linear" $dist $size 3 64 $core
-            done
-
-            for size in 1048576; do
-                _statsForExp "Cuckoo" $dist $size 3 64 $core
-            done
-
-            for size in 1048576; do
-                _statsForExp "CuckooBucket" $dist $size 3 64 $core
-            done
-        done
-    done | awk '{print $0"\t"$1"-"$3}' | tee stats-tmp.csv
-
-    _drawGraphGroupByField "stats-tmp.csv" '13' '1' '10' '1' "Cache size" "99th percentile (cycles)" "graphs/twisted.pdf" true false '19'
-    _drawGraphGroupByField "stats-tmp.csv" '13' '1' '7' '1' "Cache size" "Average (cycles)" "graphs/twisted-avg.pdf" true false '19'
-}
-
-_experimentCacheAppUtil0() {
-    # Available dist: 0.75 1.1 1.5
-    for dist in 1.1; do
-        for core in 0x80 0x280 0xA80 0x2A80 0xAA80 0x2AA80 0xAAA80; do
-            for size in 2097152; do
-                _statsForExp "Simple" $dist $size 3 0 $core
-            done
-
-            for size in 2097152; do
-                _statsForExp "Linear" $dist $size 3 0 $core
-            done
-
-            for size in 1048576; do
-                _statsForExp "Cuckoo" $dist $size 3 0 $core
-            done
-
-            for size in 1048576; do
-                _statsForExp "CuckooBucket" $dist $size 3 0 $core
-            done
-        done
-    done | awk '{print $0"\t"$1"-"$3}' | tee stats-tmp.csv
-
-    _drawGraphGroupByField "stats-tmp.csv" '13' '1' '10' '1' "Cache size" "99th percentile (cycles)" "graphs/twisted.pdf" true false '19'
-    _drawGraphGroupByField "stats-tmp.csv" '13' '1' '7' '1' "Cache size" "Average (cycles)" "graphs/twisted-avg.pdf" true false '19'
-}
-
-
 _run() {
-    # _generateCsvFiles
-    # _drawGraphs
-    # rm *csv
-    #_experimentKeySizePointerPerformance
-    #_experimentKeySizePerformance
-    #_experimentOverallComparison
-    #_experimentSimpleAccuracy
-    _experimentCacheSizeCycles
-    #_experimentCacheAppUtil64
-    #_experimentCacheAppUtil0
+    _experimentSharedGraph
 }
 
 

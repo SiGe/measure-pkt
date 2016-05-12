@@ -33,8 +33,8 @@ set style line 6 lt rgb "#3D98AA" lw 2 pt 3
 set style line 7 lt rgb "#979281" lw 2 pt 7
 set style line 8 lt rgb "#D55258" lw 2 pt 5
 
-set key Left reverse samplen 3 font ",8"
-set key inside horizontal bottom center
+set key samplen 3 font ",8"
+set key inside horizontal top right Right
 set mxtics 10
 set xrange [:200]
 set logscale x
@@ -51,24 +51,3 @@ plot 'Heap-def-tmp.csv'   using ($2/(1024*1024)):($7/(2.3)) title 'Heap'   w lp 
      'Linear-def-tmp.csv' using ($2/(1024*1024)):($7/2.3):($10/2.3):($7/2.3) notitle w yerrorbars ls 4 lw 1, \
      'Simple-def-tmp.csv' using ($2/(1024*1024)):($7/(2.3)) title 'Count array' w lp ls 5, \
      'Simple-def-tmp.csv' using ($2/(1024*1024)):($7/2.3):($10/2.3):($7/2.3) notitle w yerrorbars ls 5 lw 1
-
-set autoscale x
-set autoscale y
-unset logscale x
-
-set yrange [0:]
-set xrange [0:]
-set key inside vertical bottom left
-set output "overall-pre-lat.pdf"
-set xlabel "99th Latency (ns)" offset 0,0,0
-set ylabel "Precision" offset 1,0,0
-plot 'Heap-def-tmp.csv'   using ($10/2.3):($5) title 'Heap'   w lp ls 6, \
-     'Linear-def-tmp.csv' using ($10/2.3):($5) title 'Linear' w lp ls 4, \
-     'Simple-def-tmp.csv' using ($10/2.3):($5) title 'Count array' w lp ls 5, \
-
-set output "overall-rec-lat.pdf"
-set xlabel "99th Latency (ns)" offset 0,0,0
-set ylabel "Recall" offset 1,0,0
-plot 'Heap-def-tmp.csv'   using ($10/2.3):($6) title 'Heap'   w lp ls 6, \
-     'Linear-def-tmp.csv' using ($10/2.3):($6) title 'Linear' w lp ls 4, \
-     'Simple-def-tmp.csv' using ($10/2.3):($6) title 'Count array' w lp ls 5, \

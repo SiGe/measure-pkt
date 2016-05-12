@@ -46,10 +46,10 @@ set logscale x
 set arrow from 25,0 to 25,150 as 1
 set label "L3 cache" at 35,100 rotate by 90 font ", 8pt" textcolor rgb "#AAAAAA"
 
-plot 'Cuckoo-1.1-tmp.csv'       using ($18/(1)):($7/(2.3)) title 'Cuckoo' w lp ls 2,\
-     'CuckooBucket-1.1-tmp.csv' using ($18/(1)):($7/(2.3)) title 'Cuckoo Bkt' w lp ls 3,\
-     'Linear-1.1-tmp.csv'       using ($18/(1)):($7/(2.3)) title 'Linear' w lp ls 4,\
-     'Simple-1.1-tmp.csv'       using ($18/(1)):($7/(2.3)) title 'Count array' w lp ls 5,\
+plot 'Cuckoo-1.1-tmp.csv'       using ($18/(1)):($10/(2.3)) title 'Cuckoo' w lp ls 2,\
+     'CuckooBucket-1.1-tmp.csv' using ($18/(1)):($10/(2.3)) title 'Cuckoo Bkt' w lp ls 3,\
+     'Linear-1.1-tmp.csv'       using ($18/(1)):($10/(2.3)) title 'Linear' w lp ls 4,\
+     'Simple-1.1-tmp.csv'       using ($18/(1)):($10/(2.3)) title 'Count array' w lp ls 5,\
 
 #   plot 'Cuckoo-1.1-tmp.csv'       using ($18/(1)):($7/(1)) title 'Cuckoo' w lp ls 2,\
 #        'Cuckoo-1.1-tmp.csv'       using 18:7:10:7 notitle w errorbars ls 2,\

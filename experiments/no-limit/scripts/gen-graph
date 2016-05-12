@@ -73,28 +73,37 @@ _getAccuracy() {
     local folder=$1
     local groundDir=${_RESULTDIR}/groundtruth/$2
 
-    truePositives=`for i in {0..12}; do
-        local next=$(echo "$i + 1" | bc)
-        local gt_f=$(printf %04d $i)
-        local ac_f=$(printf %04d $next)
+    # truePositives=`for i in {0..12}; do
+    #     local next=$(echo "$i + 1" | bc)
+    #     local gt_f=$(printf %04d $i)
+    #     local ac_f=$(printf %04d $next)
 
-        if ls ${folder}/*${ac_f}.log 1>/dev/null 2>&1; then
-            printf ""
-        else
-            printf "FAILED...."
-            exit 1
-        fi
-        comm -12 <(cat $groundDir/${gt_f}.log| cut -d" " -f1 | sort) \
-            <(cat ${folder}/*${ac_f}.log | cut -d" " -f1 | sort)
-    done | wc -l`
+    #     if ls ${folder}/*${ac_f}.log 1>/dev/null 2>&1; then
+    #         printf ""
+    #     else
+    #         printf "FAILED...."
+    #         exit 1
+    #     fi
+    #     comm -12 <(cat $groundDir/${gt_f}.log| cut -d" " -f1 | sort) \
+    #         <(cat ${folder}/*${ac_f}.log | cut -d" " -f1 | sort)
+    # done | wc -l`
 
-    local relevantElements=$(cat $groundDir/*log | wc -l)
-    local selectedElements=$(cat ${folder}/*00*log | wc -l)
+    # local relevantElements=$(cat $groundDir/*log | wc -l)
+    # local selectedElements=$(cat ${folder}/*00*log | wc -l)
 
-    local precision=$(echo "scale=3;100*$truePositives/$relevantElements" | bc)
-    local recall=$(echo "scale=3;100*$truePositives/$selectedElements" | bc)
+    # local precision=$(echo "scale=3;100*$truePositives/$relevantElements" | bc)
+    # local recall=$(echo "scale=3;100*$truePositives/$selectedElements" | bc)
 
-    echo -e "$precision\t$recall"
+    #XXX: We don't care about the accuracy in the no limit case
+    echo -e "100"
+}
+
+_getThroughput() {
+    local folder=$1
+    local thr=$(tac $folder/app.log | grep Rate | awk -F'|' '{print $3}' | \
+        egrep 'Rate:(\s+)([0-9][0-9][0-9]([0-9]+))' | awk '{print $2}'   | \
+        head -n 10 | tail -n 8 | awk '{sum += $1; count +=1; } END {print sum/count}')
+    echo -e "$thr"
 }
 
 _getCycles() {
@@ -140,15 +149,16 @@ _statsForFolder() {
 
     local time=$(_getCycles $expDir)
     local acc=$(_getAccuracy $expDir $trfcDist)
+    local thr=$(_getThroughput $expDir)
     local stats=$(_getStats $expDir)
     local size=$(_titleToSize $exp $entries $valSize)
 
     ###################################################################
     #   1,    2,    3,       4,   5,   6,       7,  8,  9,  10,    11 #
-    # exp, size, dist, valSize, prec, acc, average, 50, 95, 99, stats #
+    # exp, size, dist, valSize, prec, thr, average, 50, 95, 99, stats #
     ###################################################################
 
-    echo -e "$exp\t$size\t$trfcDist\t$valSize\t$acc\t$time\t$stats"
+    echo -e "$exp\t$size\t$trfcDist\t$valSize\t$acc\t$thr\t$time\t$stats"
 }
 
 ###################################################################
@@ -187,9 +197,9 @@ _experimentOverallComparison() {
         #     _statsForExp "Heap" $dist $size 3
         # done
 
-        for size in 8192 16384 32768 131072 262144 524288 1048576 2097152 4194304 8388608; do
-            _statsForExp "CountMin" $dist $size 3
-        done
+        # for size in 8192 16384 32768 131072 262144 524288 1048576 2097152 4194304 8388608; do
+        #     _statsForExp "CountMin" $dist $size 3
+        # done
 
         for size in 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608; do
             _statsForExp "Simple" $dist $size 3
@@ -328,15 +338,15 @@ _experimentKeySizePerformance() {
 
 _experimentKeySizePointerPerformance() {
     for dist in 0.75 1.1 1.25 1.5 1.75; do
-        for size in 2097152; do
+        for size in 1048576; do
             _statsForExp "LinearPtr" $dist $size 12
             _statsForExp "Linear" $dist $size 12
         done
     done | awk '{print $0"\t"$1"-"$4}' | tee stats-tmp.csv
     for dist in 0.75 1.1 1.25 1.5 1.75; do
-        for size in 1048576; do
+        for size in 524288; do
             _statsForExp "CuckooPtr" $dist $size 12
-            _statsForExp "Cuckoo" $dist $size 12
+            #_statsForExp "Cuckoo" $dist $size 12
             _statsForExp "CuckooBucket" $dist $size 12
         done
     done | awk '{print $0"\t"$1"-"$4}' | tee -a stats-tmp.csv
@@ -362,21 +372,6 @@ _experimentKeySizeGraph() {
     _drawGraphGroupByField "stats-tmp.csv" '4' '($1*4)' '10' '1' "Key Size (bytes)" "99th percentile (cycles)" "graphs/linear-key.pdf" false false '12'
 }
 
-
-_experimentEntSizeGraph() {
-    for dist in 1.1; do
-        for key in 1 3 5 7; do
-            for size in 1048576; do
-                _statsForExp "Linear" $dist $size $key
-                _statsForExp "Simple" $dist $size $key
-            done
-
-            _statsForExp "Heap" $dist 262144 $key
-        done
-    done | awk '{print $0"\t"$1"-"$3}' | tee stats-tmp.csv
-
-    _drawGraphGroupByField "stats-tmp.csv" '4' '($1*4)' '10' '1' "Key Size (bytes)" "99th percentile (cycles)" "graphs/linear-key.pdf" false false '12'
-}
 
 _generateCsvFiles() {
     local resultsDir=${_RESULTDIR}
@@ -539,10 +534,9 @@ _run() {
     #_experimentKeySizePointerPerformance
     #_experimentKeySizePerformance
     #_experimentOverallComparison
-    _experimentSimpleAccuracy
+    #_experimentSimpleAccuracy
     #_experimentOverallPerformance
-    #_experimentKeySizeGraph
-    #_experimentEntSizeGraph
+    _experimentKeySizeGraph
     #_experimentOverallComparisonHashTable
 }
 

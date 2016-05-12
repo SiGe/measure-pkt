@@ -85,7 +85,7 @@ _getAccuracy() {
             exit 1
         fi
         comm -12 <(cat $groundDir/${gt_f}.log| cut -d" " -f1 | sort) \
-            <(cat ${folder}/*${ac_f}.log | cut -d" " -f1 | sort)
+            <(cat ${folder}/*${ac_f}.log | cut -d"/" -f1 | sort)
     done | wc -l`
 
     local relevantElements=$(cat $groundDir/*log | wc -l)
@@ -121,14 +121,13 @@ _getFolderForExp() {
     exp=$(_titleToDs $1)
     trfcDist=$2
     entries=$3
-    valSize=$4
     local resultsDir=${_RESULTDIR}
 
-    echo -e "$resultsDir/$trfcDist/$exp/$entries/$valSize"
+    echo -e "$resultsDir/$trfcDist/$exp/$entries"
 }
 
 _statsForExp() {
-    _statsForFolder $(_getFolderForExp $1 $2 $3 $4) $1 $2 $3 $4
+    _statsForFolder $(_getFolderForExp $1 $2 $3) $1 $2 $3
 }
 
 _statsForFolder() {
@@ -136,19 +135,18 @@ _statsForFolder() {
     local exp=$2
     local trfcDist=$3
     local entries=$4
-    local valSize=$5
 
     local time=$(_getCycles $expDir)
     local acc=$(_getAccuracy $expDir $trfcDist)
     local stats=$(_getStats $expDir)
-    local size=$(_titleToSize $exp $entries $valSize)
+    local size=$(_titleToSize $exp $entries)
 
     ###################################################################
     #   1,    2,    3,       4,   5,   6,       7,  8,  9,  10,    11 #
     # exp, size, dist, valSize, prec, acc, average, 50, 95, 99, stats #
     ###################################################################
 
-    echo -e "$exp\t$size\t$trfcDist\t$valSize\t$acc\t$time\t$stats"
+    echo -e "$exp\t$size\t$trfcDist\t129\t$acc\t$time\t$stats"
 }
 
 ###################################################################
@@ -161,16 +159,16 @@ _experimentOverallComparisonHashTable() {
         #     _statsForExp "Heap" $dist $size 3
         # done
         for size in 131072 262144 524288 1048576 2097152 4194304 8388608; do
-            _statsForExp "Simple" $dist $size 3
+            _statsForExp "Simple" $dist $size
         done
 
         for size in 131072 262144 524288 1048576 2097152 4194304 8388608; do
-            _statsForExp "Linear" $dist $size 3
+            _statsForExp "Linear" $dist $size
         done
 
         for size in  131072 262144 524288 1048576 2097152 4194304; do
-            _statsForExp "Cuckoo" $dist $size 3
-            _statsForExp "CuckooBucket" $dist $size 3
+            _statsForExp "Cuckoo" $dist $size
+            _statsForExp "CuckooBucket" $dist $size
         done
     done | awk '{print $0"\t"$1"-"$3}' | tee stats-tmp.csv
    _drawGraphGroupByField "stats-tmp.csv" '2' '1024*1024' '10' '2.3' "Size (MB)" "99th percentile (cycles)" "graphs/overall-hash-table.pdf" true false '12'
@@ -187,16 +185,16 @@ _experimentOverallComparison() {
         #     _statsForExp "Heap" $dist $size 3
         # done
 
-        for size in 8192 16384 32768 131072 262144 524288 1048576 2097152 4194304 8388608; do
-            _statsForExp "CountMin" $dist $size 3
+        for size in 128 256 512 1024 2048 4096 8192 16384 32768 131072 262144 524288 1048576 2097152 4194304 8388608; do
+            _statsForExp "CountMin" $dist $size
         done
 
-        for size in 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608; do
-            _statsForExp "Simple" $dist $size 3
+        for size in 128 256 512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608; do
+            _statsForExp "Simple" $dist $size 
         done
 
         for size in 131072 262144 524288 1048576 2097152 4194304 8388608; do
-            _statsForExp "Linear" $dist $size 3
+            _statsForExp "Linear" $dist $size
         done
 
         # for size in 131072 262144 524288 1048576 2097152 4194304; do
@@ -204,7 +202,7 @@ _experimentOverallComparison() {
         # done
 
         for size in 16384 32768 65536 131072 262144 524288 1048576 2097152; do
-            _statsForExp "Heap" $dist $size 3
+            _statsForExp "Heap" $dist $size
         done
     done | awk '{print $0"\t"$1"-"$3}' | tee stats-tmp.csv
    _drawGraphGroupByField "stats-tmp.csv" '2' '1024*1024' '10' '1' "Size (MB)" "99th percentile (cycles)" "graphs/twisted-99-1.25.pdf" true false '12'
@@ -270,7 +268,7 @@ _experimentSimpleAccuracy() {
     # Available dist: 0.5 1.1 1.5
     for dist in 0.5 1.1 1.5; do
         for size in 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608; do
-            _statsForExp "Simple" $dist $size 3
+            _statsForExp "Simple" $dist $size
         done
     done | awk '{print $0"\t"$1"-"$3}' | tee stats-tmp.csv
 
@@ -284,23 +282,24 @@ _experimentSimpleAccuracy() {
 # exp, size, dist, valSize, prec, acc, average, 50, 95, 99, stats #
 ###################################################################
 _experimentOverallPerformance() {
-    for dist in 0.75 1.1 1.25 1.5 1.75; do
-        _statsForExp "Linear" $dist 1048576 3
-    done | awk '{print $0"\t"$1"-"$4}' | tee stats-tmp.csv
+    #for size in 128 256 512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576; do
+    for size in 8192 16384 32768 65536 131072 262144 524288 1048576; do
+        _statsForExp "Simple" def  $size
+    done | awk '{print $0"\t"$1"-"3}' | tee stats-tmp.csv
 
-    for dist in 0.75 1.1 1.25 1.5 1.75; do
-        _statsForExp "Simple" $dist 1048576 3
-    done | awk '{print $0"\t"$1"-"$4}' | tee -a stats-tmp.csv
-    
-    for dist in 0.75 1.1 1.25 1.5 1.75; do
-        _statsForExp "CountMin" $dist 524288 3
-    done | awk '{print $0"\t"$1"-"$4}' | tee -a stats-tmp.csv
+    for size in 65536 131072 262144 524288 1048576; do
+        _statsForExp "Linear" def  $size
+    done | awk '{print $0"\t"$1"-"3}' | tee -a stats-tmp.csv
 
-    for dist in 0.75 1.1 1.25 1.5 1.75; do
-        _statsForExp "Heap" $dist 262144 3
-    done | awk '{print $0"\t"$1"-"$4}' | tee -a stats-tmp.csv
+    for size in 65536 131072 262144 524288 1048576; do
+        _statsForExp "Cuckoo" def  $size
+    done | awk '{print $0"\t"$1"-"3}' | tee -a stats-tmp.csv
 
-    _drawGraphGroupByField "stats-tmp.csv" '3' '1' '10' '1' "Traffic dist (Zipf param)" "99th percentile (cycles)" "graphs/overall-dist-cyc.pdf" false false '12'
+    for size in 65536 131072 262144 524288 1048576; do
+        _statsForExp "CuckooBucket" def  $size
+    done | awk '{print $0"\t"$1"-"3}' | tee -a stats-tmp.csv
+
+    _drawGraphGroupByField "stats-tmp.csv" '2' '1024*1024' '7' '2.3' "MB" "Latency (ns)" "graphs/overall-ss.pdf" true false '12'
 }
 
 ###################################################################
@@ -363,21 +362,6 @@ _experimentKeySizeGraph() {
 }
 
 
-_experimentEntSizeGraph() {
-    for dist in 1.1; do
-        for key in 1 3 5 7; do
-            for size in 1048576; do
-                _statsForExp "Linear" $dist $size $key
-                _statsForExp "Simple" $dist $size $key
-            done
-
-            _statsForExp "Heap" $dist 262144 $key
-        done
-    done | awk '{print $0"\t"$1"-"$3}' | tee stats-tmp.csv
-
-    _drawGraphGroupByField "stats-tmp.csv" '4' '($1*4)' '10' '1' "Key Size (bytes)" "99th percentile (cycles)" "graphs/linear-key.pdf" false false '12'
-}
-
 _generateCsvFiles() {
     local resultsDir=${_RESULTDIR}
     for trafficSize in $(ls -d $resultsDir/* | grep -v groundtruth | xargs -L1 basename); do
@@ -397,15 +381,15 @@ _titleToDs() {
     local field=$1
     local ret=""
     case $field in
-        "Heap")         ret="01-hh-hm-pqueue";;
-        "CuckooBucket") ret="01-hh-hm-cuckoo-bucket";;
-        "CuckooPtr")    ret="01-hh-hm-cuckoo-ptr";;
-        "Cuckoo")       ret="01-hh-hm-cuckoo-local";;
-        "LinearPtr")    ret="01-hh-hm-linear-ptr";;
-        "Linear")       ret="01-hh-hm-linear";;
-        "RTEHash")      ret="01-hh-hm-cuckoo";;
-        "Simple")       ret="01-hh-hm-simple";;
-        "CountMin")     ret="01-hh-hm-countmin";;
+        "Heap")         ret="01-ss-hm-pqueue";;
+        "CuckooBucket") ret="01-ss-hm-cuckoo-bucket";;
+        "CuckooPtr")    ret="01-ss-hm-cuckoo-ptr";;
+        "Cuckoo")       ret="01-ss-hm-cuckoo-local";;
+        "LinearPtr")    ret="01-ss-hm-linear-ptr";;
+        "Linear")       ret="01-ss-hm-linear";;
+        "RTEHash")      ret="01-ss-hm-cuckoo";;
+        "Simple")       ret="01-ss-hm-simple";;
+        "CountMin")     ret="01-ss-hm-countmin";;
         *) ret=$field;;
     esac
     echo -e "$ret"
@@ -430,14 +414,14 @@ _dsToTitle() {
 }
 
 _titleToSize() {
-    _dsToSize $(_titleToDs $1) $2 $3
+    _dsToSize $(_titleToDs $1) $2
 }
 
 _dsToSize() {
     local field=$1
     local size=$2
     local keySize=2
-    local elSize=${3:-3}
+    local elSize=33
     local heapFactor=8
     local heapExtra=1
     local ret=""
@@ -539,11 +523,10 @@ _run() {
     #_experimentKeySizePointerPerformance
     #_experimentKeySizePerformance
     #_experimentOverallComparison
-    _experimentSimpleAccuracy
+    #_experimentSimpleAccuracy
     #_experimentOverallPerformance
     #_experimentKeySizeGraph
-    #_experimentEntSizeGraph
-    #_experimentOverallComparisonHashTable
+    _experimentOverallPerformance
 }
 
 
