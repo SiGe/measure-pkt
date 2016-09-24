@@ -20,9 +20,6 @@ set ytics nomirror
 #set log x
 #set mxtics 10    # Makes logscale look good.
 
-set xlabel "MB"
-set ylabel "99th percentile (cycles)"
-
 # Line styles: try to pick pleasing colors, rather
 # than strictly primary colors or hard-to-see colors
 # like gnuplot's default yellow.  Make the lines thick
@@ -36,29 +33,13 @@ set style line 6 lt rgb "#3D98AA" lw 2 pt 3
 set style line 7 lt rgb "#979281" lw 2 pt 7
 set style line 8 lt rgb "#D55258" lw 2 pt 5
 
-set key samplen 2 font ",8"
-set key inside vertical bottom right
-set logscale x
-
+set output "graph.pdf"
+set key samplen 2 spacing 0.75 font ",8"
 # Get the directory of the benchmark
-set output "simple-cyc.pdf"
-plot \
-     'Simple-0.5-tmp.csv' using ($2/(1024*1024)):7  title 'Simple (Z=0.5)' w lp ls 1,\
-     'Simple-0.5-tmp.csv' using ($2/(1024*1024)):10 notitle w errorbars ls 1 lw 1,\
-     'Simple-1.1-tmp.csv' using ($2/(1024*1024)):7  title 'Simple (Z=1.1)' w lp ls 2,\
-     'Simple-1.1-tmp.csv' using ($2/(1024*1024)):10 notitle w errorbars ls 2 lw 1,\
-     'Simple-1.5-tmp.csv' using ($2/(1024*1024)):7  title 'Simple (Z=1.5)' w lp ls 3,\
-     'Simple-1.5-tmp.csv' using ($2/(1024*1024)):10 notitle w errorbars ls 3 lw 1
-
-set output "simple-pre.pdf"
-plot 'Simple-0.5-tmp.csv' using ($2/(1024*1024)):($5/(1)) title 'Simple (Z=0.5)' w lp ls 1,\
-     'Simple-1.1-tmp.csv' using ($2/(1024*1024)):($5/(1)) title 'Simple (Z=1.1)' w lp ls 2,\
-     'Simple-1.5-tmp.csv' using ($2/(1024*1024)):($5/(1)) title 'Simple (Z=1.5)' w lp ls 3
-
-unset logscale x
-set ylabel "Precision"
-set xlabel "99th percentile (cycles)"
-set output "simple-both.pdf"
-plot 'Simple-0.5-tmp.csv' using ($10/(1)):5 title 'Simple (Z=0.5)' w lp ls 1,\
-     'Simple-1.1-tmp.csv' using ($10/(1)):5 title 'Simple (Z=1.1)' w lp ls 2,\
-     'Simple-1.5-tmp.csv' using ($10/(1)):5 title 'Simple (Z=1.5)' w lp ls 3
+set xlabel "Size (MB)"
+set ylabel "99th percentile (cycles)"
+set key outside horizontal bottom center 
+set mxtics 10
+# set yrange [10:100]
+set logscale x
+plot 'Simple-0.5-tmp.csv' using ($2/(1024*1024)):($10/(1))            title 'Simple-0.5' w lp ls 5,'Simple-1.1-tmp.csv' using ($2/(1024*1024)):($10/(1))            title 'Simple-1.1' w lp ls 5,'Simple-1.5-tmp.csv' using ($2/(1024*1024)):($10/(1))            title 'Simple-1.5' w lp ls 5,

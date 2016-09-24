@@ -3,8 +3,8 @@ Experiment:
     ports:
         - port-id: 1
           modules:
-              - name: SuperSpreader::HashMap
-                size: 1048576
+              - name: SuperSpreader::HashmapLinear
+                size: 65536
                 keysize: 1
                 socket: 1
                 file-prefix: superspreader-hashmap-%04d.log
